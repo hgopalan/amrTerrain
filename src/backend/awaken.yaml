@@ -1,6 +1,6 @@
 solver: "amrWind"
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "awaken001"
+caseFolder: "awaken20240525"
 caseType: "terrainTurbine"
 caseInitial: "amr"
 domainType: "center"
@@ -11,7 +11,7 @@ east: 0.28
 south: 0.1
 north: 0.33
 purgeCorners: 16
-cellSize: 24
+cellSize: 64
 timeMethod: "step"
 numOfSteps: 10000
 plotOutput: 5000

@@ -52,7 +52,7 @@ class amrBackend():
 
     def createDomain(self):
         bounds = self.caseWest, self.caseSouth, self.caseEast, self.caseNorth 
-        dx = dy = 90.
+        dx = dy = 30.
         product = 'SRTM1' 
         try:
             tmpName=Path(self.caseParent,self.caseName,"terrain.tif")
@@ -69,75 +69,13 @@ class amrBackend():
         self.terrainX1=x1[cornerCut:x1.shape[0]-cornerCut,cornerCut:x1.shape[1]-cornerCut]
         self.terrainX2=x2[cornerCut:x2.shape[0]-cornerCut,cornerCut:x2.shape[1]-cornerCut]
         self.terrainX3=x3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut]
-        self.caseLatList=0*self.terrainX1
-        self.caseLonList=0*self.terrainX2
-        print(self.terrainX1.shape)
         meanZ3=np.mean(self.terrainX3.flatten(order='F'))
         print("Mean Height:",meanZ3)
-        minX=1.2*np.amin(self.terrainX1)
-        minY=1.2*np.amin(self.terrainX2)
-        maxX=0.8*np.amax(self.terrainX1)
-        maxY=0.8*np.amax(self.terrainX2)
-        # Checking for Spurios Zero 
-        for i in range(0,self.terrainX1.shape[0]):
-            for j in range(0,self.terrainX1.shape[1]):
-                if(self.terrainX3[i,j]==0 and  self.terrainX1[i,j]> maxX):
-                    self.terrainX3[i,j]=self.terrainX3[i-1,j]
-                    print(i,j,self.terrainX3[i,j])
-        for i in range(self.terrainX3.shape[0]-1,0,-1):
-            for j in range(0,self.terrainX1.shape[1]):
-                if(self.terrainX3[i,j]==0 and  self.terrainX1[i,j]< minX):
-                    self.terrainX3[i,j]=self.terrainX3[i+1,j]
-                    print(i,j,self.terrainX3[i,j])
-        print('Done Fixing')
-        for i in range(0,self.terrainX1.shape[0]):
-            for j in range(0,self.terrainX1.shape[1]):
-                self.caseLatList[i,j],self.caseLonList[i,j]=self.srtm.to_latlon(self.terrainX1[i,j],self.terrainX2[i,j])
-        # import pyvista as pv
-        # import numpy as np 
-        # x1=self.terrainX1.flatten(order='F')
-        # x2=self.terrainX2.flatten(order='F')
-        # x3=self.terrainX3.flatten(order='F')
-        # data=np.column_stack([x1,x2,x3])
-        # print(data.shape)
-        # mesh=pv.PolyData(data)
-        # mesh['elevation']=data[:,2]
-        # surf = mesh.delaunay_2d()
-        # pl = pv.Plotter()
-        # pl.add_mesh(surf)
-        # pl.set_scale(zscale=5)
-        # pl.view_xy()
-        # pl.show_axes()
-        # pl.show()
     
     def createAMRFiles(self):
         self.amrPrecursorFile=Path(self.caseParent,self.caseName,"precursor","precursor.inp").open("w")
         self.amrPrecursorFile.write("# Generating the precursor file\n")
         self.createPrecursorFiles()
-        # self.createAMRGeometry(self.amrPrecursorFile,1)
-        # self.createAMRGeometry(self.amrTerrainFile,-1)
-        # self.createAMRGrid(self.amrPrecursorFile)
-        # self.createAMRGrid(self.amrTerrainFile)
-        # self.createAMRTime(self.amrPrecursorFile)
-        # self.createAMRTime(self.amrTerrainFile)
-        # self.createSolverInfo(self.amrPrecursorFile)
-        # self.createSolverInfo(self.amrTerrainFile,1)
-        # self.createAMRTransport(self.amrPrecursorFile)
-        # self.createAMRTransport(self.amrTerrainFile)
-        # self.createAMRTurbulence(self.amrPrecursorFile)
-        # self.createAMRTurbulence(self.amrTerrainFile)
-        # self.createAMRABLData(self.amrPrecursorFile,0,1)
-        # self.createAMRABLData(self.amrTerrainFile,1,0)  
-        # self.createAMRSourceTerm(self.amrPrecursorFile)
-        # self.createAMRSourceTerm(self.amrTerrainFile,1)      
-        # self.createAMRBC(self.amrPrecursorFile)
-        # self.createAMRBC(self.amrTerrainFile,1)
-        # self.createAMRTolerance(self.amrPrecursorFile)
-        # self.createAMRTolerance(self.amrTerrainFile)
-        # # Write the terrain data 
-        # if(self.caseType=='terrain'):
-        #     self.writeTerrainData()
-        #     self.writeRestart(self.amrTerrainFile)
         if(self.caseType=='terrain'):
             self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrain","terrain.inp").open("w")
             self.amrTerrainFile.write("# Generating the terrain file\n")
@@ -152,9 +90,8 @@ class amrBackend():
             self.createTurbineFiles()
             self.plotTurbines()
 
-
-
     def createPrecursorFiles(self):
+        print("Creating precursor")
         self.createAMRGeometry(self.amrPrecursorFile,1)
         self.createAMRGrid(self.amrPrecursorFile)
         self.createAMRTime(self.amrPrecursorFile)
@@ -165,9 +102,10 @@ class amrBackend():
         self.createAMRSourceTerm(self.amrPrecursorFile)    
         self.createAMRBC(self.amrPrecursorFile)
         self.createAMRTolerance(self.amrPrecursorFile)
-
+        print(" Done creating precursor")
 
     def createTerrainFiles(self,folder):
+        print("Creating Terrain Files")
         self.createAMRGeometry(self.amrTerrainFile,-1)
         self.createAMRGrid(self.amrTerrainFile)
         self.createAMRTime(self.amrTerrainFile)
@@ -181,7 +119,7 @@ class amrBackend():
         if(self.caseType=='terrainTurbine'):
             self.createAMRSourceTerm(self.amrTerrainFile,1,1) 
         else:
-            self.createAMRSourceTerm(self.amrTerrainFile,1)      
+            self.createAMRSourceTerm(self.amrTerrainFile,1)    
         self.createAMRBC(self.amrTerrainFile,1)
         self.createAMRTolerance(self.amrTerrainFile,1)
         self.writeTerrainData(folder)
@@ -212,7 +150,7 @@ class amrBackend():
         while (ny%8 !=0):
             ny=ny+1
         # AMR - Wind cannot handle higher AR 
-        nz=2*int((max(2*np.amax(self.terrainX3),1600)-np.amin(self.terrainX3))/self.caseCellSize)
+        nz=4*int((max(4*np.amax(self.terrainX3),1600)-np.amin(self.terrainX3))/self.caseCellSize)
         while (nz%8 !=0):
             nz=nz+1
         target.write("# Grid \n")
@@ -386,6 +324,8 @@ class amrBackend():
             target.write("nodal_proj.mg_atol = 1.0e-6\n")
             target.write("mac_proj.mg_rtol = 1.0e-4\n")
             target.write("mac_proj.mg_atol = 1.0e-6\n")    
+        target.write("mac_proj.num_pre_smooth = 8\n")
+        target.write("mac_proj.num_post_smooth = 8\n")
     
     def createAMRPrecursorSampling(self,target):
         pass
@@ -410,35 +350,23 @@ class amrBackend():
             pass
 
     def writeTerrainData(self,folder):
-        target=Path(self.caseParent,self.caseName,folder,"terrain.amrwind").open("w")
+        print("Writing Terrain Data")
         x1=self.terrainX1.flatten(order='F')
         x2=self.terrainX2.flatten(order='F')
-        x3=self.terrainX3.flatten(order='F')
-        xmin=min(x1)
-        xmax=max(x1)
-        ymin=min(x2)
-        ymax=max(x2)
-        xleft=xmin+1200
-        xright=xmax-1200
-        yleft=ymin+1200
-        yright=ymax-1200
-        zmean=np.mean(x3)
-        # for i in range(0,len(x1)):
-        #     if(x1[i]>xleft and x1[i]<xright and x2[i]>yleft and x2[i]<yright):
-        #         pass            
-        #     else:
-        #         x3[i]=zmean    
+        x3=self.terrainX3.flatten(order='F')  
         data=np.column_stack([x1,x2,x3])
         import pyvista as pv
         mesh=pv.PolyData(data)
         mesh['elevation']=data[:,2]
+        mesh.save(Path(self.caseParent,self.caseName,folder,"terrainPoints.vtk").as_posix())
         surf = mesh.delaunay_2d()
         totalPoints=100
         decimateFactor=0.95
-        while(totalPoints<100000):
+        print("Smoothing data")
+        while(totalPoints<20000):
             smoothData=surf.decimate(decimateFactor)
             totalPoints=len(smoothData.points[:,0])
-            if(totalPoints<100000):
+            if(totalPoints<20000):
                 decimateFactor=decimateFactor-0.05
             print(decimateFactor,totalPoints)
         #smoothData=surf.smooth(1008)  
@@ -451,23 +379,33 @@ class amrBackend():
         for i in range(0,len(smoothData.points[:,0])):
              target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
         target.close()
+        # Temporary Roughness Data 
+        import geopandas as gpd
+        from shapely import Polygon
+        import pygeohydro as gh
+        roughnessData=[]
+        DEF_CRS = 4326
+        ALT_CRS = 3542
+        for i in range(0,len(smoothData.points[:,0])):
+            centerLat,centerLon=self.srtm.to_latlon(smoothData.points[i,0],smoothData.points[i,1])
+            GEOM = Polygon(
+                [
+                    [centerLon-0.001,centerLat-0.001],
+                    [centerLon+0.001,centerLat-0.001],
+                    [centerLon-0.001,centerLat+0.001],
+                    [centerLon+0.001,centerLat+0.001],
+                ]
+            )
+            years = {"cover": [2019]}
+            res = 1000
+            geom = gpd.GeoSeries([GEOM], crs=DEF_CRS)
+            lulc = gh.nlcd_bygeom(geom, years=years, resolution=res, crs=ALT_CRS, ssl=False)
+            roughness = gh.overland_roughness(lulc[0].cover_2019)
+            roughnessData.append(roughness.mean().item())
+            print(i,len(smoothData.points[:,2]),roughnessData[i])
+        smoothData['elevation']=smoothData.points[:,2]
+        smoothData['roughness']=roughnessData
         smoothData.save(Path(self.caseParent,self.caseName,folder,"smoothterrain.vtk").as_posix())
-        # target=Path(self.caseParent,self.caseName,"terrain","terrain.amrwind").open("w")
-        # for i in range(0,len(x1)):
-        #      target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
-        # target.close()
-        # smoothData.save(Path(self.caseParent,self.caseName,"terrain","smoothterrain.vtk").as_posix())
-        # target=Path(self.caseParent,self.caseName,"terrain","terrain.amrwind").open("w")
-        # for i in range(0,len(x1)):
-        #     if(x1[i]>xleft and x1[i]<xright and x2[i]>yleft and x2[i]<yright):
-        #         smoothData.points[i,0]=x1[i]
-        #         smoothData.points[i,1]=x2[i]
-        #         smoothData.points[i,2]=x3[i]
-        #         target.write("%g %g %g\n"%(x1[i],x2[i],x3[i])) 
-        #     else:
-        #      target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
-        # target.close()
-        # smoothData.save(Path(self.caseParent,self.caseName,"terrain","smoothterrain.vtk").as_posix())
 
     def writeRestart(self,target):
             import math 
@@ -495,17 +433,18 @@ class amrBackend():
 
     def createTurbineFiles(self):
         print("Creating Turbines")
+        latmin,lonmin=self.srtm.to_latlon(self.terrainX1[0,0],self.terrainX2[0,0])
+        latmax,lonmax=self.srtm.to_latlon(self.terrainX1[self.terrainX1.shape[0]-1,self.terrainX1.shape[1]-1], \
+                                          self.terrainX2[self.terrainX1.shape[0]-1,self.terrainX1.shape[1]-1])
         self.turbineMarkType=self.yamlFile['turbineMarkType']
         if(self.turbineMarkType=='database'):
-            xmin=np.amin(self.caseLatList)+0.05
-            ymin=np.amin(self.caseLonList)+0.05
-            xmax=np.amax(self.caseLatList)-0.05
-            ymax=np.amax(self.caseLonList)-0.05
+            xmin=latmin+0.01
+            ymin=lonmin+0.01
+            xmax=latmax-0.01
+            ymax=lonmax-0.01
             import pandas as pd
             df=pd.read_csv('turbine.csv', sep=',',encoding='latin-1',usecols=[1,2])   
             data=df.to_numpy()
-            self.caseTurbineLat=[]
-            self.caseTurbineLon=[]
             lon=data[:,0]
             lat=data[:,1]
             df=pd.read_csv('turbine.csv', sep=',',encoding='latin-1')
@@ -513,12 +452,14 @@ class amrBackend():
             # data=np.genfromtxt("turbine.csv",dtype=str,delimiter=",",invalid_raise = False,skip_header=1)
             location=data[:,0]
             index=0
+            self.caseTurbineLat=[]
+            self.caseTurbineLon=[]
             for i in range(0,len(lat)):
                 if(lat[i]>xmin and lat[i]<xmax and lon[i]>ymin and lon[i]<ymax):
                     index=index+1
                     self.caseTurbineLat.append(lat[i])
                     self.caseTurbineLon.append(lon[i]) 
-                    #print(index,xmin,xmax,ymin,ymax,location[i],lat[i],lon[i])
+                    #print(xmin,xmax,lat[i],ymin,ymax,lon[i])
             target=Path(self.caseParent,self.caseName,"terrainTurbine","turbineLabels.info").open("w")
             target.write("Actuator.labels =")
             index=0
@@ -550,7 +491,7 @@ class amrBackend():
                 self.turbineX2.append(yturb)
                 self.turbineX3.append(zturb)
                 index=index+1
-                #print(index,xturb,yturb,zturb,xTerrain[kloc],yTerrain[kloc],zTerrain[kloc],residual)
+                print(index,xturb,yturb,xTerrain[kloc],yTerrain[kloc],residual)
                 self.createDefaultTurbine(xturb,yturb,zturb,index,target)
                 target.close()
         globalMindistance=100000
@@ -651,7 +592,6 @@ class amrBackend():
             tmpName=Path(self.caseParent,self.caseName,"terrainTurbine","turbineRefinement"+str(i+1)+"Details.info")
             tmpName.unlink()
 
-
     def createDefaultTurbine(self,xi,yi,zi,index,target):
         string="Actuator.Turb"+str(index)
         target.write("# Turbine %g\n"%(index))
@@ -684,24 +624,6 @@ class amrBackend():
         import pyvista as pv 
         import pandas as pd
         print("Plotting Turbines")
-        # df=pd.read_csv('turbine.csv', sep=',',encoding='latin-1',usecols=[1,2])
-        # data=df.to_numpy()        
-        # strings=['Biglow','PaTu','Hay Canyon']
-        # xlat=[]
-        # xlon=[]
-        # lon=data[:,0]
-        # lat=data[:,1]
-        # df=pd.read_csv('turbine.csv', sep=',',encoding='latin-1')
-        # data=df.to_numpy()  
-        # location=data[:,0]
-        # for turbineLocation in strings:
-        #     for i in range(0,len(location)):
-        #         if(turbineLocation in location[i]):
-        #             print(location[i])
-        #             xlat.append(lat[i])
-        #             xlon.append(lon[i]) 
-        # print(len(xlat))
-        #data=np.genfromtxt("turbine.csv",skip_header=1,delimiter=",")
         x1=self.terrainX1.flatten(order='F')
         x2=self.terrainX2.flatten(order='F')
         x3=self.terrainX3.flatten(order='F')
@@ -711,34 +633,6 @@ class amrBackend():
         mesh2['elevation']=data[:,2]
         surf = mesh2.delaunay_2d()
         pl.add_mesh(surf)
-        # xlat=np.asarray(xlat)
-        # xlon=np.asarray(xlon)
-        # xlat=np.asarray(self.caseTurbineLat)
-        # xlon=np.asarray(self.caseTurbineLon)
-        # zloc=0*xlat
-        # x1=self.caseLatList.flatten(order='F')
-        # x2=self.caseLonList.flatten(order='F')
-        # #print(len(xlat),len(xlon),len(zloc),len(x1),len(x2))
-        # for i in range(0,len(xlat)):
-        #     residual=10000000
-        #     error=0
-        #     for j in range(0,len(x1)):
-        #         error=np.sqrt((x1[j]-xlat[i])**2+(x2[j]-xlon[i])**2)
-        #         if(residual>error):
-        #             residual=error
-        #             zloc[i]=x3[j]+80
-            #print(i,residual,zloc[i])
-        # for i in range(0,len(xlat)):
-        #         print("Plotting turbine",i+1)
-        #         xlat[i],xlon[i]=self.srtm.to_xy(xlat[i],xlon[i])
-        #         newDisk=pv.Disc(center=(xlat[i],xlon[i],zloc[i]),inner=8,outer=50,normal=(1.0, 0.0,0.0), r_res=1, c_res=24)
-        #         pl.add_mesh(newDisk)
-        #         if(i==0):
-        #             globalBox=newDisk
-        #         else:
-        #             localBox=newDisk
-        #             tempbox=globalBox.merge([localBox])
-        #             globalBox=tempbox
         for i in range(0,len(self.turbineX1)):
                 print("Plotting turbine",i+1)
                 newDisk=pv.Disc(center=(self.turbineX1[i],self.turbineX2[i],self.turbineX3[i]+80),inner=8,outer=50,normal=(1.0, 0.0,0.0), r_res=1, c_res=24)
