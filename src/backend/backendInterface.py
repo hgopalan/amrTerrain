@@ -52,7 +52,8 @@ class amrBackend():
 
     def createDomain(self):
         bounds = self.caseWest, self.caseSouth, self.caseEast, self.caseNorth 
-        dx = dy = 30.
+        self.terrainResolution=self.yamlFile['terrainSize']
+        dx = dy = self.terrainResolution
         product = 'SRTM1' 
         try:
             tmpName=Path(self.caseParent,self.caseName,"terrain.tif")
@@ -150,9 +151,11 @@ class amrBackend():
         while (ny%8 !=0):
             ny=ny+1
         # AMR - Wind cannot handle higher AR 
-        nz=4*int((max(4*np.amax(self.terrainX3),1600)-np.amin(self.terrainX3))/self.caseCellSize)
+        self.caseverticalAR=self.yamlFile['verticalAR']
+        nz=self.caseverticalAR*int((max(np.amax(self.terrainX3),1600)-np.amin(self.terrainX3))/self.caseCellSize)
         while (nz%8 !=0):
             nz=nz+1
+        print("dx,dz",self.caseCellSize,(max(np.amax(self.terrainX3),1600)-np.amin(self.terrainX3))/nz)
         target.write("# Grid \n")
         target.write("amr.n_cell \t\t\t = %g %g %g\n"%(nx,ny,nz))
         target.write("amr.max_level \t\t\t = 0\n")
@@ -310,22 +313,42 @@ class amrBackend():
         target.write('zlo.type \t\t\t = "wall_model"\n')
 
     def createAMRTolerance(self,target,modify=-1):
-        if(modify==1):
-            target.write("# Tolerance \n")
-            target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-3\n")
-            target.write("nodal_proj.maxiter \t\t\t = 360\n")
-            target.write("nodal_proj.mg_atol = 1.0e-6\n")
-            target.write("mac_proj.mg_rtol = 1.0e-3\n")
-            target.write("mac_proj.mg_atol = 1.0e-6\n") 
-            target.write("mac_proj.maxiter \t\t\t = 360\n")
-        else:
-            target.write("# Tolerance \n")
-            target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-4\n")
-            target.write("nodal_proj.mg_atol = 1.0e-6\n")
-            target.write("mac_proj.mg_rtol = 1.0e-4\n")
-            target.write("mac_proj.mg_atol = 1.0e-6\n")    
-        target.write("mac_proj.num_pre_smooth = 8\n")
-        target.write("mac_proj.num_post_smooth = 8\n")
+        #if(modify==1):
+        if(self.caseverticalAR==3 or self.caseverticalAR==4):
+            self.smoothing=16
+        elif(self.caseverticalAR>4 and self.caseverticalAR<=8):
+            self.smoothing=32
+        elif(self.caseverticalAR>8 and self.caseverticalAR<=16):
+            self.smoothing=64
+        if(self.caseverticalAR>=3):
+            target.write("mac_proj.num_pre_smooth \t\t\t = %g \n"%(self.smoothing))
+            target.write("mac_proj.num_post_smooth \t\t\t = %g \n"%(self.smoothing))
+            #target.write("mac_proj.fmg_maxiter \t\t\t = 8 \n")
+        target.write("mac_proj.mg_rtol \t\t\t = 1.0e-3 \n")
+        target.write("mac_proj.mg_atol \t\t\t = 1.0e-6 \n")
+        target.write("mac_proj.maxiter \t\t\t = 360 \n")
+        if(self.caseverticalAR>=3):
+            target.write("nodal_proj.num_pre_smooth \t\t\t = %g \n"%(self.smoothing))
+            target.write("nodal_proj.num_post_smooth \t\t\t = %g \n"%(self.smoothing))
+            #target.write("nodal_proj.fmg_maxiter \t\t\t = 8 \n")
+        target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-3 \n")
+        target.write("nodal_proj.mg_atol \t\t\t = 1.0e-6 \n")
+        target.write("nodal_proj.maxiter \t\t\t = 360 \n")
+        # target.write("# Tolerance \n")
+        # target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-3\n")
+        # target.write("nodal_proj.maxiter \t\t\t = 360\n")
+        # target.write("nodal_proj.mg_atol = 1.0e-6\n")
+        # target.write("mac_proj.mg_rtol = 1.0e-3\n")
+        # target.write("mac_proj.mg_atol = 1.0e-6\n") 
+        # target.write("mac_proj.maxiter \t\t\t = 360\n")
+        # else:
+        #     target.write("# Tolerance \n")
+        #     target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-4\n")
+        #     target.write("nodal_proj.mg_atol = 1.0e-6\n")
+        #     target.write("mac_proj.mg_rtol = 1.0e-4\n")
+        #     target.write("mac_proj.mg_atol = 1.0e-6\n")    
+        # target.write("mac_proj.num_pre_smooth = 8\n")
+        # target.write("mac_proj.num_post_smooth = 8\n")
     
     def createAMRPrecursorSampling(self,target):
         pass
@@ -360,16 +383,15 @@ class amrBackend():
         mesh['elevation']=data[:,2]
         mesh.save(Path(self.caseParent,self.caseName,folder,"terrainPoints.vtk").as_posix())
         surf = mesh.delaunay_2d()
-        totalPoints=100
-        decimateFactor=0.95
-        print("Smoothing data")
-        while(totalPoints<20000):
-            smoothData=surf.decimate(decimateFactor)
-            totalPoints=len(smoothData.points[:,0])
-            if(totalPoints<20000):
-                decimateFactor=decimateFactor-0.05
-            print(decimateFactor,totalPoints)
-        #smoothData=surf.smooth(1008)  
+        if(len(surf.points[:,0])<=100000):
+            smoothData=surf
+        else:
+            smoothData=surf
+            decimateParam=0.5
+            while(len(smoothData.points[:,0])>100000):
+                smoothData=surf.decimate(decimateParam)
+                print(decimateParam,len(smoothData.points[:,0]))
+                decimateParam=decimateParam+0.05
         print("Reduced points from ",len(x1)," to ",len(smoothData.points[:,0]))
         surf.save(Path(self.caseParent,self.caseName,folder,"terrain.vtk").as_posix())
         target=Path(self.caseParent,self.caseName,folder,"terrain.amrwind").open("w")
@@ -379,33 +401,63 @@ class amrBackend():
         for i in range(0,len(smoothData.points[:,0])):
              target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
         target.close()
-        # Temporary Roughness Data 
-        import geopandas as gpd
-        from shapely import Polygon
-        import pygeohydro as gh
-        roughnessData=[]
-        DEF_CRS = 4326
-        ALT_CRS = 3542
-        for i in range(0,len(smoothData.points[:,0])):
-            centerLat,centerLon=self.srtm.to_latlon(smoothData.points[i,0],smoothData.points[i,1])
-            GEOM = Polygon(
-                [
-                    [centerLon-0.001,centerLat-0.001],
-                    [centerLon+0.001,centerLat-0.001],
-                    [centerLon-0.001,centerLat+0.001],
-                    [centerLon+0.001,centerLat+0.001],
-                ]
-            )
-            years = {"cover": [2019]}
-            res = 1000
-            geom = gpd.GeoSeries([GEOM], crs=DEF_CRS)
-            lulc = gh.nlcd_bygeom(geom, years=years, resolution=res, crs=ALT_CRS, ssl=False)
-            roughness = gh.overland_roughness(lulc[0].cover_2019)
-            roughnessData.append(roughness.mean().item())
-            print(i,len(smoothData.points[:,2]),roughnessData[i])
         smoothData['elevation']=smoothData.points[:,2]
-        smoothData['roughness']=roughnessData
         smoothData.save(Path(self.caseParent,self.caseName,folder,"smoothterrain.vtk").as_posix())
+        # # Temporary Roughness Data 
+        # self.smoothData=smoothData
+        # self.roughnessData=0*smoothData.points[:,0]
+        # import geopandas as gpd
+        # from shapely import Polygon
+        # import pygeohydro as gh
+        # offset=0.15
+        # GEOM = Polygon(
+        #     [
+        #         [self.caseWest-offset,self.caseSouth-offset],
+        #         [self.caseEast+offset,self.caseSouth-offset],
+        #         [self.caseEast+offset,self.caseNorth+offset],
+        #         [self.caseWest-offset,self.caseNorth+offset],  
+        #         [self.caseWest-offset,self.caseSouth-offset],    
+        #     ]
+        # )
+        # DEF_CRS = 4326
+        # ALT_CRS = 3542
+        # years = {"cover": [2021]}
+        # res = 150
+        # geom = gpd.GeoSeries([GEOM], crs=DEF_CRS)
+        # lulc = gh.nlcd_bygeom(geom, years=years, resolution=res, crs=ALT_CRS, ssl=False)
+        # roughness = gh.overland_roughness(lulc[0].cover_2021)
+        # roughNumpy=np.flipud(roughness.to_numpy())
+        # lat=np.linspace(self.caseSouth-offset,self.caseNorth+offset,roughNumpy.shape[0])
+        # lon=np.linspace(self.caseWest-offset,self.caseEast+offset,roughNumpy.shape[1])
+        # self.roughLon,self.roughLat=np.meshgrid(lon,lat)
+        # lat=[]
+        # lon=[]
+        # roughness1D=[]
+        # for i in range(0,self.roughLat.shape[0]):
+        #     for j in range(0,self.roughLat.shape[1]):
+        #         if(not np.isnan(roughNumpy[i,j])):
+        #             lat.append(self.roughLat[i,j])
+        #             lon.append(self.roughLon[i,j])
+        #             roughness1D.append(roughNumpy[i,j])
+        # xrougharray=[]
+        # yrougharray=[]
+        # for i in range(0,len(lat)):
+        #     xrough,yrough=self.srtm.to_xy(lat[i],lon[i])
+        #     xrougharray.append(xrough)
+        #     yrougharray.append(yrough)
+        # xrougharray=np.asarray(xrougharray)
+        # yrougharray=np.asarray(yrougharray)
+        # data=np.column_stack([xrougharray,yrougharray,0*xrougharray])
+        # mesh2=pv.PolyData(data)
+        # mesh2['roughness']=roughness1D
+        # surf = mesh2.delaunay_2d()
+        # surf.save(Path(self.caseParent,self.caseName,folder,"terrainRoughness.vtk").as_posix())
+        # print(self.roughLat.shape,roughNumpy.shape)
+        # import matplotlib.pylab as plt 
+        # plt.contourf(self.roughLon,self.roughLat,roughNumpy)
+        # plt.show()
+
+
 
     def writeRestart(self,target):
             import math 

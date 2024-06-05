@@ -11,7 +11,8 @@ east: 0.5
 south: 0.25
 north: 0.35
 purgeCorners: 100
-cellSize: 64
+terrainSize: 150 
+cellSize: 128
 timeMethod: "step"
 numOfSteps: 10000
 plotOutput: 5000
