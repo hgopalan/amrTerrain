@@ -67,11 +67,17 @@ class amrBackend():
         x1,x2,x3 = self.srtm.to_terrain(dx,dy)
         self.purgeCorner=self.yamlFile['purgeCorners']
         cornerCut=self.purgeCorner
-        self.terrainX1=x1[cornerCut:x1.shape[0]-cornerCut,cornerCut:x1.shape[1]-cornerCut]
-        self.terrainX2=x2[cornerCut:x2.shape[0]-cornerCut,cornerCut:x2.shape[1]-cornerCut]
-        self.terrainX3=x3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut]
-        meanZ3=np.mean(self.terrainX3.flatten(order='F'))
-        print("Mean Height:",meanZ3)
+        #self.terrainX1=x1[cornerCut:x1.shape[0]-cornerCut,cornerCut:x1.shape[1]-cornerCut]
+        #self.terrainX2=x2[cornerCut:x2.shape[0]-cornerCut,cornerCut:x2.shape[1]-cornerCut]
+        #self.terrainX3=x3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut]
+        self.terrainX1=x1[:,:]
+        self.terrainX2=x2[:,:]
+        self.terrainX3=0*x3[:,:]+np.amin(x3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut])
+        self.terrainX3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut]=x3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut]
+        self.zRef=np.amin(self.terrainX3)
+        self.terrainX3=self.terrainX3-np.amin(self.terrainX3)
+        #meanZ3=np.mean(self.terrainX3.flatten(order='F'))
+        #print("Mean Height:",meanZ3)
     
     def createAMRFiles(self):
         self.amrPrecursorFile=Path(self.caseParent,self.caseName,"precursor","precursor.inp").open("w")
@@ -126,6 +132,9 @@ class amrBackend():
         self.writeTerrainData(folder)
         self.writeRestart(self.amrTerrainFile)
         self.createAMRPrecursorSampling(self.amrPrecursorFile)
+        # Terrain Monitoring and Refining 
+        self.metMastRefinement(self.amrTerrainFile)
+        #self.metMastMonitoring(self.amrTerrainFile)
 
     def createAMRGeometry(self,target,periodic=-1):
         target.write("# Geometry\n")
@@ -315,40 +324,27 @@ class amrBackend():
     def createAMRTolerance(self,target,modify=-1):
         #if(modify==1):
         if(self.caseverticalAR==3 or self.caseverticalAR==4):
-            self.smoothing=16
+            self.smoothing=8
         elif(self.caseverticalAR>4 and self.caseverticalAR<=8):
-            self.smoothing=32
+            self.smoothing=16
         elif(self.caseverticalAR>8 and self.caseverticalAR<=16):
             self.smoothing=64
         if(self.caseverticalAR>=3):
             target.write("mac_proj.num_pre_smooth \t\t\t = %g \n"%(self.smoothing))
             target.write("mac_proj.num_post_smooth \t\t\t = %g \n"%(self.smoothing))
-            #target.write("mac_proj.fmg_maxiter \t\t\t = 8 \n")
-        target.write("mac_proj.mg_rtol \t\t\t = 1.0e-3 \n")
-        target.write("mac_proj.mg_atol \t\t\t = 1.0e-6 \n")
+        target.write("mac_proj.mg_rtol \t\t\t = 1.0e-4 \n")
+        target.write("mac_proj.mg_atol \t\t\t = 1.0e-8 \n")
         target.write("mac_proj.maxiter \t\t\t = 360 \n")
         if(self.caseverticalAR>=3):
             target.write("nodal_proj.num_pre_smooth \t\t\t = %g \n"%(self.smoothing))
             target.write("nodal_proj.num_post_smooth \t\t\t = %g \n"%(self.smoothing))
-            #target.write("nodal_proj.fmg_maxiter \t\t\t = 8 \n")
-        target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-3 \n")
-        target.write("nodal_proj.mg_atol \t\t\t = 1.0e-6 \n")
+        target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-4 \n")
+        target.write("nodal_proj.mg_atol \t\t\t = 1.0e-8 \n")
+        target.write("diffusion.mg_rtol \t\t\t = 1.0e-6 \n")
+        target.write("diffusion.mg_atol \t\t\t = 1.0e-8 \n")
+        target.write("temperature_diffusion.mg_rtol \t\t\t = 1.0e-6 \n")
+        target.write("temperature_diffusion.mg_atol \t\t\t = 1.0e-8 \n")
         target.write("nodal_proj.maxiter \t\t\t = 360 \n")
-        # target.write("# Tolerance \n")
-        # target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-3\n")
-        # target.write("nodal_proj.maxiter \t\t\t = 360\n")
-        # target.write("nodal_proj.mg_atol = 1.0e-6\n")
-        # target.write("mac_proj.mg_rtol = 1.0e-3\n")
-        # target.write("mac_proj.mg_atol = 1.0e-6\n") 
-        # target.write("mac_proj.maxiter \t\t\t = 360\n")
-        # else:
-        #     target.write("# Tolerance \n")
-        #     target.write("nodal_proj.mg_rtol \t\t\t = 1.0e-4\n")
-        #     target.write("nodal_proj.mg_atol = 1.0e-6\n")
-        #     target.write("mac_proj.mg_rtol = 1.0e-4\n")
-        #     target.write("mac_proj.mg_atol = 1.0e-6\n")    
-        # target.write("mac_proj.num_pre_smooth = 8\n")
-        # target.write("mac_proj.num_post_smooth = 8\n")
     
     def createAMRPrecursorSampling(self,target):
         pass
@@ -364,6 +360,59 @@ class amrBackend():
         # for i in range(0,len(self.terrainX1)):
         #     height80File.write("%g %g %g \n"%(self.smoothTerrainX1[i],self.smoothTerrainX2[i],self.smoothTerrainX3[i]+80))
         # height80File.close()
+
+    def metMastRefinement(self,target):
+        # Read Met Mast 
+        latList=self.yamlFile['metMastLat']
+        lonList=self.yamlFile['metMastLon']
+        metMastHeight=self.yamlFile['metMastHeight']
+        print(latList,len(latList))
+        xref=[]
+        yref=[]
+        zlower=[]
+        zmast=[]
+        for i in range(0,len(latList)):
+            if(i==0):
+                target.write("tagging.labels = metMast%g metMast111%g"%(i+1,i+1))
+            else:
+                target.write(" metMast%g metMast111%g"%(i+1,i+1))
+            xtemp,ytemp=self.srtm.to_xy(latList[i],lonList[i])
+            xref.append(xtemp)
+            yref.append(ytemp)
+            zmast.append(metMastHeight[i])
+        target.write("\n")
+        # Now Write Refinemements 
+        import pyvista as pv
+        for i in range(0,len(latList)):
+            xstart=xref[i]-2000
+            ystart=yref[i]-2000
+            zstart=0
+            zdist=zmast[i]-self.zRef
+            target.write("tagging.metMast%g.type \t\t\t = GeometryRefinement\n"%(i+1))
+            target.write("tagging.metMast%g.shapes \t\t\t = metMast%g\n"%(i+1,i+1))
+            target.write("tagging.metMast%g.level \t\t\t = 0\n"%(i+1))
+            target.write("tagging.metMast%g.metMast%g.type \t\t\t = box\n"%(i+1,i+1))
+            target.write("tagging.metMast%g.metMast%g.origin = %g %g %g \n"%(i+1,i+1,xstart,ystart,zstart))
+            target.write("tagging.metMast%g.metMast%g.xaxis =  %g %g %g\n"%(i+1,i+1,4000,0,0))
+            target.write("tagging.metMast%g.metMast%g.yaxis =  %g %g %g\n"%(i+1,i+1,0,4000,0))
+            target.write("tagging.metMast%g.metMast%g.zaxis = %g %g %g\n"%(i+1,i+1,0,0,zstart+2*zdist))
+            xstart=xref[i]-1000
+            ystart=yref[i]-1000
+            target.write("tagging.metMast111%g.type \t\t\t = GeometryRefinement\n"%(i+1))
+            target.write("tagging.metMast111%g.shapes \t\t\t = metMast111%g\n"%(i+1,i+1))
+            target.write("tagging.metMast111%g.min_level \t\t\t = 0\n"%(i+1))
+            target.write("tagging.metMast111%g.max_level \t\t\t = 1\n"%(i+1))
+            target.write("tagging.metMast111%g.metMast111%g.type \t\t\t = box\n"%(i+1,i+1))
+            target.write("tagging.metMast111%g.metMast111%g.origin = %g %g %g \n"%(i+1,i+1,xstart,ystart,zstart))
+            target.write("tagging.metMast111%g.metMast111%g.xaxis =  %g %g %g\n"%(i+1,i+1,2000,0,0))
+            target.write("tagging.metMast111%g.metMast111%g.yaxis =  %g %g %g\n"%(i+1,i+1,0,2000,0))
+            target.write("tagging.metMast111%g.metMast111%g.zaxis = %g %g %g\n"%(i+1,i+1,0,0,zstart+1.5*zdist))
+            mesh1=pv.Box(bounds=(xref[i]-2000,xref[i]+2000,yref[i]-2000,yref[i]+2000,zstart,zstart+zdist+400))
+            fileName=Path(self.caseParent,self.caseName,"metMast"+str(i+1)+".vtk").as_posix()
+            mesh1.save(fileName)
+            mesh1=pv.Box(bounds=(xref[i]-1000,xref[i]+1000,yref[i]-1000,yref[i]+1000,zstart,zstart+zdist+200))
+            fileName=Path(self.caseParent,self.caseName,"metMast111"+str(i+1)+".vtk").as_posix()
+            mesh1.save(fileName)
 
     def closeAMRFiles(self):
         self.amrPrecursorFile.close()
@@ -382,28 +431,32 @@ class amrBackend():
         mesh=pv.PolyData(data)
         mesh['elevation']=data[:,2]
         mesh.save(Path(self.caseParent,self.caseName,folder,"terrainPoints.vtk").as_posix())
-        surf = mesh.delaunay_2d()
-        if(len(surf.points[:,0])<=100000):
-            smoothData=surf
-        else:
-            smoothData=surf
-            decimateParam=0.5
-            while(len(smoothData.points[:,0])>100000):
-                smoothData=surf.decimate(decimateParam)
-                print(decimateParam,len(smoothData.points[:,0]))
-                decimateParam=decimateParam+0.05
-        print("Reduced points from ",len(x1)," to ",len(smoothData.points[:,0]))
+        #surf = mesh.delaunay_2d()
+        # if(len(surf.points[:,0])<=100000):
+        #     smoothData=surf
+        # else:
+        #     smoothData=surf
+        #     decimateParam=0.5
+        #     while(len(smoothData.points[:,0])>100000):
+        #         smoothData=surf.decimate(decimateParam)
+        #         print(decimateParam,len(smoothData.points[:,0]))
+        #         decimateParam=decimateParam+0.1
+        # print("Reduced points from ",len(x1)," to ",len(smoothData.points[:,0]))
+        surf=mesh
+        smoothData=surf.smooth(boundary_smoothing=True, feature_smoothing=False, n_iter=108, relaxation_factor=0.1, edge_angle=120)
         surf.save(Path(self.caseParent,self.caseName,folder,"terrain.vtk").as_posix())
+        smoothData=mesh
         target=Path(self.caseParent,self.caseName,folder,"terrain.amrwind").open("w")
         self.smoothTerrainX1=smoothData.points[:,0]
         self.smoothTerrainX2=smoothData.points[:,1]
         self.smoothTerrainX3=smoothData.points[:,2]
         for i in range(0,len(smoothData.points[:,0])):
-             target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
+            target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
         target.close()
         smoothData['elevation']=smoothData.points[:,2]
         smoothData.save(Path(self.caseParent,self.caseName,folder,"smoothterrain.vtk").as_posix())
-        # # Temporary Roughness Data 
+        # Temporary Roughness Data 
+        print("Writing Roughness Data")
         # self.smoothData=smoothData
         # self.roughnessData=0*smoothData.points[:,0]
         # import geopandas as gpd
@@ -422,7 +475,7 @@ class amrBackend():
         # DEF_CRS = 4326
         # ALT_CRS = 3542
         # years = {"cover": [2021]}
-        # res = 150
+        # res = 300
         # geom = gpd.GeoSeries([GEOM], crs=DEF_CRS)
         # lulc = gh.nlcd_bygeom(geom, years=years, resolution=res, crs=ALT_CRS, ssl=False)
         # roughness = gh.overland_roughness(lulc[0].cover_2021)
@@ -450,12 +503,16 @@ class amrBackend():
         # data=np.column_stack([xrougharray,yrougharray,0*xrougharray])
         # mesh2=pv.PolyData(data)
         # mesh2['roughness']=roughness1D
-        # surf = mesh2.delaunay_2d()
-        # surf.save(Path(self.caseParent,self.caseName,folder,"terrainRoughness.vtk").as_posix())
+        # # surf = mesh2.delaunay_2d()
+        # # surf.save(Path(self.caseParent,self.caseName,folder,"terrainRoughness.vtk").as_posix())
         # print(self.roughLat.shape,roughNumpy.shape)
-        # import matplotlib.pylab as plt 
-        # plt.contourf(self.roughLon,self.roughLat,roughNumpy)
-        # plt.show()
+        # target=Path(self.caseParent,self.caseName,folder,"terrain.roughness").open("w")
+        # for i in range(0,len(roughness1D)):
+        #     target.write("%g %g %g\n"%(xrougharray[i],yrougharray[i],roughness1D[i]))
+        # target.close()
+        #import matplotlib.pylab as plt 
+        #plt.contourf(self.roughLon,self.roughLat,roughNumpy)
+        #plt.show()
 
 
 
@@ -590,39 +647,39 @@ class amrBackend():
             target=Path(self.caseParent,self.caseName,"terrainTurbine","turbineRefinement"+str(i+1)+"Details.info").open("w")
             xstart=self.turbineX1[i]-4*tempTurbineRadius
             ystart=self.turbineX2[i]-4*tempTurbineRadius
-            zstart=self.turbineX3[i]
+            zstart=self.turbineX3[i]-200
             target.write("tagging.g%g.type \t\t\t = GeometryRefinement\n"%(i))
             target.write("tagging.g%g.shapes \t\t\t = b%g\n"%(i,i))
             target.write("tagging.g%g.level \t\t\t = 0\n"%(i))
             target.write("tagging.g%g.b%g.type \t\t\t = box\n"%(i,i))
             target.write("tagging.g%g.b%g.origin = %g %g %g \n"%(i,i,xstart,ystart,zstart))
-            target.write("tagging.g%g.b%g.xaxis =  %g %g %g\n"%(i,i,4*tempTurbineRadius,0,0))
-            target.write("tagging.g%g.b%g.yaxis =  %g %g %g\n"%(i,i,0,4*tempTurbineRadius,0))
-            target.write("tagging.g%g.b%g.zaxis = %g %g %g\n"%(i,i,0,0,400))
+            target.write("tagging.g%g.b%g.xaxis =  %g %g %g\n"%(i,i,8*tempTurbineRadius,0,0))
+            target.write("tagging.g%g.b%g.yaxis =  %g %g %g\n"%(i,i,0,8*tempTurbineRadius,0))
+            target.write("tagging.g%g.b%g.zaxis = %g %g %g\n"%(i,i,0,0,600))
             xstart=self.turbineX1[i]-2*tempTurbineRadius
             ystart=self.turbineX2[i]-2*tempTurbineRadius
-            zstart=self.turbineX3[i]
+            zstart=self.turbineX3[i]-100
             target.write("tagging.gg%g.type \t\t\t = GeometryRefinement\n"%(i))
             target.write("tagging.gg%g.shapes \t\t\t = bb%g\n"%(i,i))
             target.write("tagging.gg%g.min_level \t\t\t = 0\n"%(i))
             target.write("tagging.gg%g.max_level \t\t\t = 1\n"%(i))
             target.write("tagging.gg%g.bb%g.type \t\t\t = box\n"%(i,i))
             target.write("tagging.gg%g.bb%g.origin = %g %g %g \n"%(i,i,xstart,ystart,zstart))
-            target.write("tagging.gg%g.bb%g.xaxis =  %g %g %g\n"%(i,i,2*tempTurbineRadius,0,0))
-            target.write("tagging.gg%g.bb%g.yaxis =  %g %g %g\n"%(i,i,0,2*tempTurbineRadius,0))
-            target.write("tagging.gg%g.bb%g.zaxis = %g %g %g\n"%(i,i,0,0,200))
+            target.write("tagging.gg%g.bb%g.xaxis =  %g %g %g\n"%(i,i,4*tempTurbineRadius,0,0))
+            target.write("tagging.gg%g.bb%g.yaxis =  %g %g %g\n"%(i,i,0,4*tempTurbineRadius,0))
+            target.write("tagging.gg%g.bb%g.zaxis = %g %g %g\n"%(i,i,0,0,400))
             xstart=self.turbineX1[i]-tempTurbineRadius
             ystart=self.turbineX2[i]-tempTurbineRadius
-            zstart=self.turbineX3[i]
+            zstart=self.turbineX3[i]-50
             target.write("tagging.ggg%g.type \t\t\t = GeometryRefinement\n"%(i))
             target.write("tagging.ggg%g.shapes \t\t\t = bbb%g\n"%(i,i))
             target.write("tagging.ggg%g.min_level \t\t\t = 0\n"%(i))
             target.write("tagging.ggg%g.max_level \t\t\t = 2\n"%(i))
             target.write("tagging.ggg%g.bbb%g.type \t\t\t = box\n"%(i,i))
             target.write("tagging.ggg%g.bbb%g.origin = %g %g %g \n"%(i,i,xstart,ystart,zstart))
-            target.write("tagging.ggg%g.bbb%g.xaxis =  %g %g %g\n"%(i,i,tempTurbineRadius,0,0))
-            target.write("tagging.ggg%g.bbb%g.yaxis =  %g %g %g\n"%(i,i,0,tempTurbineRadius,0))
-            target.write("tagging.ggg%g.bbb%g.zaxis = %g %g %g\n"%(i,i,0,0,160))
+            target.write("tagging.ggg%g.bbb%g.xaxis =  %g %g %g\n"%(i,i,2*tempTurbineRadius,0,0))
+            target.write("tagging.ggg%g.bbb%g.yaxis =  %g %g %g\n"%(i,i,0,2*tempTurbineRadius,0))
+            target.write("tagging.ggg%g.bbb%g.zaxis = %g %g %g\n"%(i,i,0,0,300))
             target.close()
         # Concatenate files 
         tempFile=Path(self.caseParent,self.caseName,"terrainTurbine","tempFile.info").open("w")

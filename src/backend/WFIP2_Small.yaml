@@ -11,7 +11,7 @@ south: 45.1
 north: 45.3
 purgeCorners: 100
 cellSize: 64
-verticalAR: 4
+verticalAR: 2
 timeMethod: "step"
 numOfSteps: 10000
 plotOutput: 5000

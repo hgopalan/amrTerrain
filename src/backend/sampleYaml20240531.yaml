@@ -1,7 +1,7 @@
 solver: "amrWind"
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
 caseFolder: "WFIP2GUI_20240531"
-caseType: "terrain"
+caseType: "terrainTurbine"
 caseInitial: "amr"
 domainType: "corners"
 terrainSize: 90
