@@ -1,2 +1,1 @@
-# amrGUI
-A simple client-server GUI for AMR-Wind using PyQt/PySide 
+This repo provides a set of python tools and examples to setup terrain cases in amr-wind.
