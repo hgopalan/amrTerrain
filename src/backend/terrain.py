@@ -881,3 +881,4 @@ def readSTL(stlpath, stlres=None, method='cubic'):
     z = griddata( points, values, (xx, yy), method=method )
 
     return xx, yy, z
+
