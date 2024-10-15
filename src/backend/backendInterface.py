@@ -71,9 +71,10 @@ class amrBackend():
         #self.terrainX1=x1[cornerCut:x1.shape[0]-cornerCut,cornerCut:x1.shape[1]-cornerCut]
         #self.terrainX2=x2[cornerCut:x2.shape[0]-cornerCut,cornerCut:x2.shape[1]-cornerCut]
         #self.terrainX3=x3[cornerCut:x3.shape[0]-cornerCut,cornerCut:x3.shape[1]-cornerCut]
+        self.write_stl=self.yamlFile["writeTerrain"]
         import SRTM_to_STL_example as converter
         self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
-                                                    self.caseWest,self.caseEast,self.caseSouth,self.caseNorth)
+                                                    self.caseWest,self.caseEast,self.caseSouth,self.caseNorth,self.write_stl)
         stlFile=Path(self.caseParent,self.caseName,"terrain.stl").as_posix()
         import pyvista as pv 
         mesh=pv.read(stlFile)
@@ -83,9 +84,11 @@ class amrBackend():
         self.terrainX1=x1[:]
         self.terrainX2=x2[:]
         self.terrainX3=x3[:]
-        for i in range(0,len(x1)):
-            if(x1[i]>0 and x1[i]<=32 and x2[i]>0 and x2[i]<=32):
-                print("Terrain Height:",x1[i],x2[i],x3[i],self.srtm.to_latlon(x1[i]+self.xref,x2[i]+self.yref))
+        if(not self.write_stl):
+            Path(self.caseParent,self.caseName,"terrain.stl").unlink()
+        # for i in range(0,len(x1)):
+        #     if(x1[i]>0 and x1[i]<=32 and x2[i]>0 and x2[i]<=32):
+        #         print("Terrain Height:",x1[i],x2[i],x3[i],self.srtm.to_latlon(x1[i]+self.xref,x2[i]+self.yref))
         #self.zRef=np.amin(self.terrainX3)
         #meanZ3=np.mean(self.terrainX3.flatten(order='F'))
         #print("Mean Height:",meanZ3)
@@ -553,11 +556,12 @@ class amrBackend():
         for i in range(0,len(x1)):
              target.write("%g %g %g\n"%(x1[i],x2[i],x3[i]))
         target.close()
-        data=np.column_stack([x1,x2,x3])
-        import pyvista as pv
-        mesh=pv.PolyData(data)
-        mesh['elevation']=data[:,2]
-        mesh.save(Path(self.caseParent,self.caseName,folder,"terrainPoints.vtk").as_posix())
+        if(self.write_stl):
+            data=np.column_stack([x1,x2,x3])
+            import pyvista as pv
+            mesh=pv.PolyData(data)
+            mesh['elevation']=data[:,2]
+            mesh.save(Path(self.caseParent,self.caseName,folder,"terrainPoints.vtk").as_posix())
         #xterrain,yterrain=np.meshgrid(x,y)
         # for i in range(0,xterrain.shape[0]):
         #     for j in range(0,xterrain.shape[1]):

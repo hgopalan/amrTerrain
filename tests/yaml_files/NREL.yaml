@@ -1,6 +1,6 @@
 solver: "amrWind"
-caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "NREL"
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/amrGUI/tests/example_cases"
+caseFolder: "nrel_terrain_only"
 caseType: "terrain"
 caseInitial: "amr"
 domainType: "center"
@@ -11,8 +11,7 @@ west: 15000
 east: 15000
 south: 15000
 north: 15000
-purgeCorners: 100
-cellSize: 8192
+cellSize: 256
 verticalAR: 4
 terrainSize: 90
 timeMethod: "step"
@@ -28,3 +27,4 @@ refHeatflux: 0.0
 refLat: 90.0
 refPeriod: 125663.706143592
 turbineMarkType: "database"
+writeTerrain: false 

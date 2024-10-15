@@ -1,4 +1,4 @@
-def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
+def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write_stl):
     import os
     import sys
     import numpy as np
@@ -129,20 +129,20 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
 
 
     vmin,vmax = 1500,2500
+    if(write_stl):
+        fig,ax = plt.subplots(figsize=(12,8))
+        cm = ax.pcolormesh(x-xref, y-yref, z, cmap='terrain')#,vmin=vmin,vmax=vmax)
+        cb = fig.colorbar(cm,ax=ax)
+        cb.set_label('elevation [m]',fontsize='x-large')
+        ax.tick_params(labelsize='large')
+        ax.set_xlabel('easting [m]')
+        ax.set_ylabel('northing [m]')
+        ax.set_title(f'{product} DEM projection')
+        ax.axis('scaled')
 
-    fig,ax = plt.subplots(figsize=(12,8))
-    cm = ax.pcolormesh(x-xref, y-yref, z, cmap='terrain')#,vmin=vmin,vmax=vmax)
-    cb = fig.colorbar(cm,ax=ax)
-    cb.set_label('elevation [m]',fontsize='x-large')
-    ax.tick_params(labelsize='large')
-    ax.set_xlabel('easting [m]')
-    ax.set_ylabel('northing [m]')
-    ax.set_title(f'{product} DEM projection')
-    ax.axis('scaled')
-
-    # bounding box for microscale region
-    les = Rectangle((xmin,ymin), xmax-xmin, ymax-ymin, edgecolor='r', lw=3, facecolor='0.5', alpha=0.5)
-    ax.add_patch(les)
+        # bounding box for microscale region
+        les = Rectangle((xmin,ymin), xmax-xmin, ymax-ymin, edgecolor='r', lw=3, facecolor='0.5', alpha=0.5)
+        ax.add_patch(les)
     #plt.show()
 
     # ### 3.1 Downscale to output grid
@@ -163,18 +163,18 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
 
     # In[21]:
 
+    if(write_stl):
+        fig,ax = plt.subplots(figsize=(12,8))
+        cm = ax.pcolormesh(xsurf, ysurf, zsrtm, cmap='terrain')#,vmin=vmin,vmax=vmax)
+        cb = fig.colorbar(cm,ax=ax)
+        cb.set_label('elevation [m]',fontsize='x-large')
+        ax.tick_params(labelsize='large')
+        ax.set_xlabel('easting [m]')
+        ax.set_ylabel('northing [m]')
+        ax.set_title(f'{product} terrain height')
+        ax.axis('scaled')
 
-    fig,ax = plt.subplots(figsize=(12,8))
-    cm = ax.pcolormesh(xsurf, ysurf, zsrtm, cmap='terrain')#,vmin=vmin,vmax=vmax)
-    cb = fig.colorbar(cm,ax=ax)
-    cb.set_label('elevation [m]',fontsize='x-large')
-    ax.tick_params(labelsize='large')
-    ax.set_xlabel('easting [m]')
-    ax.set_ylabel('northing [m]')
-    ax.set_title(f'{product} terrain height')
-    ax.axis('scaled')
-
-    fig.savefig(f'{outdir}/elevation_srtm_{case}.png',dpi=150,bbox_inches='tight')
+        fig.savefig(f'{outdir}/elevation_srtm_{case}.png',dpi=150,bbox_inches='tight')
 
 
     # ## 4. Get the low-resolution terrain from the mesoscale
@@ -290,15 +290,15 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
 
     # In[32]:
 
-
-    fig,ax = plt.subplots(figsize=(12,8))
-    cm = ax.pcolormesh(xsurf, ysurf, blend, cmap='magma')
-    cb = fig.colorbar(cm,ax=ax)
-    ax.tick_params(labelsize='large')
-    ax.set_xlabel('easting [m]')
-    ax.set_ylabel('northing [m]')
-    ax.set_title('blending function')
-    ax.axis('scaled')
+    if(write_stl):
+        fig,ax = plt.subplots(figsize=(12,8))
+        cm = ax.pcolormesh(xsurf, ysurf, blend, cmap='magma')
+        cb = fig.colorbar(cm,ax=ax)
+        ax.tick_params(labelsize='large')
+        ax.set_xlabel('easting [m]')
+        ax.set_ylabel('northing [m]')
+        ax.set_title('blending function')
+        ax.axis('scaled')
 
 
     # In[33]:
@@ -329,17 +329,17 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
 
     # In[36]:
 
-
-    fig,ax = plt.subplots(figsize=(12,8))
-    cm = ax.pcolormesh(xsurf, ysurf, zblend, cmap='terrain')#,vmin=vmin,vmax=vmax)
-    cb = fig.colorbar(cm,ax=ax)
-    cb.set_label('elevation [m]',fontsize='x-large')
-    ax.tick_params(labelsize='large')
-    ax.set_xlabel('easting [m]')
-    ax.set_ylabel('northing [m]')
-    ax.set_title('blended terrain height')
-    ax.axis('scaled')
-    fig.savefig(f'{outdir}/elevation_blended_{case}.png',dpi=150,bbox_inches='tight')
+    if(write_stl):
+        fig,ax = plt.subplots(figsize=(12,8))
+        cm = ax.pcolormesh(xsurf, ysurf, zblend, cmap='terrain')#,vmin=vmin,vmax=vmax)
+        cb = fig.colorbar(cm,ax=ax)
+        cb.set_label('elevation [m]',fontsize='x-large')
+        ax.tick_params(labelsize='large')
+        ax.set_xlabel('easting [m]')
+        ax.set_ylabel('northing [m]')
+        ax.set_title('blended terrain height')
+        ax.axis('scaled')
+        fig.savefig(f'{outdir}/elevation_blended_{case}.png',dpi=150,bbox_inches='tight')
 
 
     # # 6. Shift terrain
@@ -358,16 +358,17 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
 
 
     if shiftFlatToZero:
-        fig,ax = plt.subplots(figsize=(12,8))
-        cm = ax.pcolormesh(xsurf, ysurf, zblend, cmap='terrain')#,vmin=vmin,vmax=vmax)
-        cb = fig.colorbar(cm,ax=ax)
-        cb.set_label('elevation [m]',fontsize='x-large')
-        ax.tick_params(labelsize='large')
-        ax.set_xlabel('easting [m]')
-        ax.set_ylabel('northing [m]')
-        ax.set_title('shifted terrain height')
-        ax.axis('scaled')
-        fig.savefig(f'{outdir}/elevation_blended_{case}.png',dpi=150,bbox_inches='tight')
+        if(write_stl):
+            fig,ax = plt.subplots(figsize=(12,8))
+            cm = ax.pcolormesh(xsurf, ysurf, zblend, cmap='terrain')#,vmin=vmin,vmax=vmax)
+            cb = fig.colorbar(cm,ax=ax)
+            cb.set_label('elevation [m]',fontsize='x-large')
+            ax.tick_params(labelsize='large')
+            ax.set_xlabel('easting [m]')
+            ax.set_ylabel('northing [m]')
+            ax.set_title('shifted terrain height')
+            ax.axis('scaled')
+            fig.savefig(f'{outdir}/elevation_blended_{case}.png',dpi=150,bbox_inches='tight')
 
 
     # ## 6. Write out terrain surface STL
@@ -400,11 +401,10 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top):
     if (not dpath == '') and (not os.path.isdir(dpath)):
         os.makedirs(dpath)
         print('Created',dpath)
-        
     surf.save(stlout)
     # surf.save(stlout, mode=mesh.stl.ASCII) # if ASCII STL is needed
-    print('Saved',stlout)
-    print(zblend[0,0])
+    #print('Saved',stlout)
+    #print(zblend[0,0])
     return xref,yref,zTerrainRef,srtm
 
 
