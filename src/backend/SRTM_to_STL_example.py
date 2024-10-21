@@ -47,87 +47,31 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write
     refloc=(refLat,refLon,refHeight)
     xmin,xmax = -left-ds/2,right+ds/2
     ymin,ymax = -bottom-ds/2,top+ds/2
-    fringe_flat=150
+    fringe_flat_w=3000
+    fringe_flat_s=2000
+    fringe_flat_n=2000
+    fringe_flat_e=2000
     shiftFlatToZero=True
     fringe_w = 3000
     fringe_s = 3000
     fringe_n = 3000
     fringe_e = 3000
-    case = f'wfip_xm{abs(int(xmin))}to{int(xmax)}_ym{abs(int(ymin))}to{int(ymax)}_blendFlat3N3S3E3W_ff{fringe_flat}'
-
-    # - blend to WRF
-    # refloc = (45.638004, -120.642973, 495) # biglow PS12 met mast
-    # xmin,xmax = -15000-ds/2, 15720+ds/2
-    # ymin,ymax = -5000-ds/2, 15160+ds/2
-    # fringe_flat=0
-    # shiftFlatToZero=False
-    # fringe_w = 3000
-    # fringe_s = 3000
-    # fringe_n = 3000
-    # fringe_e = 3000
-    # case = f'wfip_xm{abs(int(xmin))}to{int(xmax)}_ym{abs(int(ymin))}to{int(ymax)}_blendWRF3N3S3E3W'
-
-
-    # ## 2. Create output surface
-
-    # In[11]:
-
+    case = f'wfip_xm{abs(int(xmin))}to{int(xmax)}_ym{abs(int(ymin))}to{int(ymax)}_blendFlat3N3S3E3W_ff{fringe_flat_w}'
 
     x1 = np.arange(xmin, xmax+ds, ds)
     y1 = np.arange(ymin, ymax+ds, ds)
     xsurf,ysurf = np.meshgrid(x1, y1, indexing='ij')
-
-
-    # In[12]:
-
-
     print('The output bounding box is')
     print('xmin: ',xsurf[0,0], '\nxmax: ',xsurf[-1,-1])
     print('ymin: ',ysurf[0,0], '\nymax: ',ysurf[-1,-1])
-
-
-    # ## 3. Get the high-resolution terrain
-
-    # In[13]:
-
-
     # Terrain region to clip from the digital elevation model (DEM)
     srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
-
     # this will be downloaded:
     srtm_output=f'{outdir}/{case}.tif' # need absolute path for GDAL
-
-
-    # In[14]:
-
-
     srtm = SRTM(srtm_bounds, fpath=srtm_output, product=product)
-
-
-    # In[15]:
-
-
-    #get_ipython().run_line_magic('time', 'srtm.download()')
-    # CPU times: user 3.53 ms, sys: 12.7 ms, total: 16.2 ms
-    # Wall time: 8.74 s
-
-
-    # In[16]:
     srtm.download()
     x,y,z = srtm.to_terrain()
-    #get_ipython().run_cell_magic('time', '', "# original SRTM terrain stored as 'z'\nx,y,z = srtm.to_terrain()\n")
-
-
-    # In[17]:
-
-
-    # get reference location to use as origin
     xref,yref,_,_ = utm.from_latlon(*refloc[:2], force_zone_number=srtm.zone_number)
-
-
-    # In[18]:
-
-
     vmin,vmax = 1500,2500
     if(write_stl):
         fig,ax = plt.subplots(figsize=(12,8))
@@ -251,7 +195,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write
     # check distance from west boundary
     blend_w = np.ones(xsurf.shape)
     if fringe_w > 0:
-        blend_w = np.minimum(np.maximum((xsurf-xmin-fringe_flat)/fringe_w, 0), 1)
+        blend_w = np.minimum(np.maximum((xsurf-xmin-fringe_flat_w)/fringe_w, 0), 1)
 
 
     # In[28]:
@@ -260,7 +204,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write
     # check distance from east boundary
     blend_e = np.ones(xsurf.shape)
     if fringe_e > 0:
-        blend_e = np.minimum(np.maximum((xmax-xsurf-fringe_flat)/fringe_e, 0), 1)
+        blend_e = np.minimum(np.maximum((xmax-xsurf-fringe_flat_e)/fringe_e, 0), 1)
 
 
     # In[29]:
@@ -269,7 +213,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write
     # check distance from south boundary
     blend_s = np.ones(xsurf.shape)
     if fringe_s > 0:
-        blend_s = np.minimum(np.maximum((ysurf-ymin-fringe_flat)/fringe_s, 0), 1)
+        blend_s = np.minimum(np.maximum((ysurf-ymin-fringe_flat_s)/fringe_s, 0), 1)
 
 
     # In[30]:
@@ -278,7 +222,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write
     # check distance from north boundary
     blend_n = np.ones(xsurf.shape)
     if fringe_n > 0:
-        blend_n = np.minimum(np.maximum((ymax-ysurf-fringe_flat)/fringe_n, 0), 1)
+        blend_n = np.minimum(np.maximum((ymax-ysurf-fringe_flat_n)/fringe_n, 0), 1)
 
 
     # In[31]:

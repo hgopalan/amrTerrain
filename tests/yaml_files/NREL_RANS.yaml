@@ -1,5 +1,5 @@
 solver: "amrWind"
-caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/amrGUI/tests/example_cases"
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
 caseFolder: "nrel_terrain_only_rans"
 caseType: "terrain"
 caseInitial: "amr"
@@ -26,4 +26,4 @@ refTemperature: 300.0
 refRoughness: 0.1
 refHeatflux: 0.0 
 turbineMarkType: "database"
-writeTerrain: false 
+writeTerrain: true
