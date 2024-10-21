@@ -237,7 +237,8 @@ class amrBackend():
         target.write("incflo.do_initial_proj \t\t\t = true\n")
         target.write("incflo.constant_density \t\t\t = true\n")
         target.write("incflo.use_godunov \t\t\t = true\n")
-        if(self.turbulence_model=="RANS:"):
+        print(self.turbulence_model)
+        if(self.turbulence_model=="RANS"):
             target.write('incflo.godunov_type \t\t\t = "ppm"\n')
         else:
             target.write('incflo.godunov_type \t\t\t = "weno_z"\n')
@@ -254,7 +255,7 @@ class amrBackend():
         # Default option is to do LES 
         # RANS capability added if requested 
         if(self.turbulence_model=="RANS"):
-            target.write("# turbulence equation parameters")
+            target.write("# turbulence equation parameters\n")
             target.write("turbulence.model \t\t\t = OneEqRANS\n")
             target.write("TKE.source_terms \t\t\t = Krans\n")
         else:
@@ -299,7 +300,7 @@ class amrBackend():
         target.write("ABL.surface_temp_flux \t\t\t = %g\n"%(self.refHeatFlux))
         if(iomode==0):
             target.write('ABL.bndry_file \t\t\t = "bndry_files"\n')
-            target.write("ABL.bndry_write_frequency \t\t\t = 100\n")
+            target.write("ABL.bndry_write_frequency \t\t\t = 1\n")
             target.write("ABL.bndry_io_mode \t\t\t = 0\n")
             if(self.caseWindspeedX>=0 and self.caseWindspeedY>=0):
                 target.write("ABL.bndry_planes \t\t\t = xlo ylo \n")     
@@ -312,7 +313,7 @@ class amrBackend():
             # Guessing a start time far enough 
             M=np.sqrt(self.caseWindspeedX**2+self.caseWindspeedY**2)
             dt=0.9*self.caseCellSize/M
-            startTime=0.25*(self.timeSteps/dt)
+            startTime=max(600,0.25*(self.timeSteps/dt))
             target.write("ABL.bndry_output_start_time \t\t\t = %g\n"%(startTime))
             target.write("ABL.bndry_var_names \t\t\t = velocity temperature\n")
             target.write("ABL.bndry_output_format \t\t\t = native\n")
@@ -324,8 +325,8 @@ class amrBackend():
 
     def createAMRSourceTerm(self,target,terrain=-1,turbine=-1):
         target.write("# Source\n")
-        refLat=self.yamlFile["refLat"]
-        refPeriod=self.yamlFile["refPeriod"]
+        #refLat=self.yamlFile["refLat"]
+        #refPeriod=self.yamlFile["refPeriod"]
         try: 
             self.includeCoriolis=self.yamlFile["includeCoriolis"]
         except:
@@ -437,11 +438,11 @@ class amrBackend():
         target.write("RayleighDamping.force_coord_directions= 0 0 1\n")
         target.write("BoussinesqBuoyancy.reference_temperature \t\t\t = %g\n"%(self.refTemperature))
         target.write("BoussinesqBuoyancy.thermal_expansion_coeff \t\t\t = %g\n"%(1.0/self.refTemperature))
-        if(self.includeCoriolis):
-            target.write("CoriolisForcing.east_vector \t\t\t = 1.0 0.0 0.0 \n")
-            target.write("CoriolisForcing.north_vector \t\t\t = 0.0 1.0 0.0 \n")
-            target.write("CoriolisForcing.latitude \t\t\t = %g \n"%(refLat))
-            target.write("CoriolisForcing.rotational_time_period \t\t\t = %g \n"%(refPeriod))
+        #if(self.includeCoriolis):
+        # Write the coriolis term for geostrophic forcing term 
+        target.write("CoriolisForcing.east_vector \t\t\t = 1.0 0.0 0.0 \n")
+        target.write("CoriolisForcing.north_vector \t\t\t = 0.0 1.0 0.0 \n")
+        target.write("CoriolisForcing.latitude \t\t\t = %g \n"%(self.caseCenterLat))
         target.write("RayleighDamping.reference_velocity \t\t\t = %g %g %g\n"%(self.caseWindspeedX,self.caseWindspeedY,self.caseWindspeedZ))
         startRayleigh=self.maxZ-self.RDLHeight
         target.write("RayleighDamping.length_sloped_damping \t\t\t = %g\n"%(500))

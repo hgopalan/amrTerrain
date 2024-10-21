@@ -11,8 +11,8 @@ west: 15000
 east: 15000
 south: 15000
 north: 15000
-cellSize: 256
-verticalAR: 4
+cellSize: 128
+verticalAR: 8
 terrainSize: 90
 timeMethod: "step"
 numOfSteps: 10000
@@ -25,7 +25,5 @@ windZ: 0.0
 refTemperature: 300.0
 refRoughness: 0.1
 refHeatflux: 0.0 
-refLat: 90.0
-refPeriod: 125663.706143592
 turbineMarkType: "database"
 writeTerrain: false 

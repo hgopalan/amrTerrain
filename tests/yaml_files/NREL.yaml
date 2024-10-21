@@ -24,7 +24,5 @@ windZ: 0.0
 refTemperature: 300.0
 refRoughness: 0.1
 refHeatflux: 0.0 
-refLat: 90.0
-refPeriod: 125663.706143592
 turbineMarkType: "database"
 writeTerrain: false 
