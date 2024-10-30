@@ -61,16 +61,50 @@ class amrBackend():
             self.caseverticalAR=self.yamlFile['verticalAR']
         except:
             if(self.turbulence_model=='RANS'):
-                self.caseverticalAR=8
+                self.caseverticalAR=6
             else:
                 self.caseverticalAR=4
-
+        try:
+            self.caseNorthSlope=self.yamlFile['northSlope']
+        except:
+            self.caseNorthSlope=3000
+        try:
+            self.caseSouthSlope=self.yamlFile['southSlope']
+        except:
+            self.caseSouthSlope=3000
+        try:
+            self.caseEastSlope=self.yamlFile['eastSlope']
+        except:
+            self.caseEastSlope=3000
+        try:
+            self.caseWestSlope=self.yamlFile['westSlope']
+        except:
+            self.caseWestSlope=3000
+        try:
+            self.caseNorthFlat=self.yamlFile['northFlat']
+        except:
+            self.caseNorthFlat=1000
+        try:
+            self.caseSouthFlat=self.yamlFile['southFlat']
+        except:
+            self.caseSouthFlat=1000
+        try:
+            self.caseEastFlat=self.yamlFile['eastFlat']
+        except:
+            self.caseEastFlat=1000
+        try:
+            self.caseWestFlat=self.yamlFile['westFlat']
+        except:
+            self.caseWestFlat=1000
 
     def createDomain(self):
         self.write_stl=self.yamlFile["writeTerrain"]
         import SRTM_to_STL_example as converter
         self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
-                                                    self.caseWest,self.caseEast,self.caseSouth,self.caseNorth,self.write_stl)
+                                                    self.caseWest,self.caseEast,self.caseSouth,self.caseNorth, \
+                                                    self.caseWestSlope,self.caseEastSlope,self.caseSouthSlope,self.caseNorthSlope, \
+                                                    self.caseWestFlat,self.caseEastFlat,self.caseSouthFlat,self.caseNorthFlat, \
+                                                        self.write_stl)
         stlFile=Path(self.caseParent,self.caseName,"terrain.stl").as_posix()
         import pyvista as pv 
         mesh=pv.read(stlFile)

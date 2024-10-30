@@ -1,4 +1,7 @@
-def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write_stl):
+def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
+                   slope_west,slope_east,slope_south,slope_north, \
+                   flat_west,flat_east,flat_south,flat_north, \
+                   write_stl):
     import os
     import sys
     import numpy as np
@@ -47,15 +50,15 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top,write
     refloc=(refLat,refLon,refHeight)
     xmin,xmax = -left-ds/2,right+ds/2
     ymin,ymax = -bottom-ds/2,top+ds/2
-    fringe_flat_w=3000
-    fringe_flat_s=2000
-    fringe_flat_n=2000
-    fringe_flat_e=2000
+    fringe_flat_w=slope_west
+    fringe_flat_s=slope_south
+    fringe_flat_n=slope_north
+    fringe_flat_e=slope_east
     shiftFlatToZero=True
-    fringe_w = 3000
-    fringe_s = 3000
-    fringe_n = 3000
-    fringe_e = 3000
+    fringe_w = flat_west
+    fringe_s = flat_south
+    fringe_n = flat_north
+    fringe_e = flat_east
     case = f'wfip_xm{abs(int(xmin))}to{int(xmax)}_ym{abs(int(ymin))}to{int(ymax)}_blendFlat3N3S3E3W_ff{fringe_flat_w}'
 
     x1 = np.arange(xmin, xmax+ds, ds)
