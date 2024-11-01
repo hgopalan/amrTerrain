@@ -22,8 +22,6 @@ southFlat: 3000
 cellSize: 64
 verticalAR: 4
 terrainSize: 32
-plotOutput: 5000
-restartOutput: 2000
 turbulenceModel: "RANS"
 windX: 10.0
 windY: 0.0 

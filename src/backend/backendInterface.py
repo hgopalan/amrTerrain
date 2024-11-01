@@ -225,17 +225,20 @@ class amrBackend():
             self.plotOutput=self.yamlFile['plotOutput']
         except:
             self.plotOutput=3600
-        try:
-            self.restartOutput=self.yamlFile['restartOutput']
-        except:
-            self.restartOutput=3600
+        # try:
+        #     self.restartOutput=self.yamlFile['restartOutput']
+        # except:
+        self.restartOutput=3600
         if(self.timeMethod=="step"):
             target.write("%-50s = -1\n"%("time.stop_time"))
             target.write("%-50s = %g\n"%("time.max_step",self.timeSteps))
         else:
             target.write("%-50s = %g\n"%("time.stop_time",self.case_end_time))
         target.write("%-50s = 1.0\n"%("time.initial_dt"))
-        target.write("%-50s = -1\n"%("time.fixed_dt"))
+        if(target==self.amrPrecursorFile):
+            target.write("%-50s = 1\n"%("time.fixed_dt"))
+        else:
+            target.write("%-50s = -1\n"%("time.fixed_dt"))
         if(self.turbulence_model=="RANS"):
             target.write("%-50s = 0.5\n"%("time.cfl"))  
         else:
@@ -743,28 +746,8 @@ class amrBackend():
 
 
     def writeRestart(self,target):
-            import math 
-            # Guessing a start time far enough 
-            M=np.sqrt(self.caseWindspeedX**2+self.caseWindspeedY**2)
-            dt=0.9*self.caseCellSize/M
-            startTime=0.25*(self.timeSteps/dt)
-            startStep=int(startTime/dt)
-            print("startStep:",startStep)
-            if(startStep<1000):
-                startStep=int(math.ceil(startStep/ 100.0)) * 100
-            elif(startStep<10000):
-                startStep=int(math.ceil(startStep/ 1000.0)) * 1000
-            if(startStep<self.restartOutput):
-                startStep=self.restartOutput
-            else:
-                ratio=math.ceil(startStep/self.restartOutput)
-                startStep=ratio*self.restartOutput
-            if(startStep<1000):
-                startStep="00"+str(startStep)
-            elif(startStep<10000):
-                startStep="0"+str(startStep)
             target.write("#io \n")
-            target.write('io.restart_file \t\t\t = "../precursor/chk%s"\n'%(startStep))
+            target.write('%-50s = "../precursor/chk%g"\n'%("io.restart_file",3600))
 
     def createTurbineFiles(self):
         print("Creating Turbines")

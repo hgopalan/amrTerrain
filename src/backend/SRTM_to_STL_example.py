@@ -48,8 +48,10 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # - blend to flat
     #refloc = (45.638004, -120.642973, 495) # biglow PS12 met mast
     refloc=(refLat,refLon,refHeight)
-    xmin,xmax = -left-ds/2,right+ds/2
-    ymin,ymax = -bottom-ds/2,top+ds/2
+    # xmin,xmax = -left-ds/2,right+ds/2
+    # ymin,ymax = -bottom-ds/2,top+ds/2
+    xmin,xmax=-left,right
+    ymin,ymax=-bottom,top
     fringe_flat_w=slope_west
     fringe_flat_s=slope_south
     fringe_flat_n=slope_north
@@ -61,8 +63,10 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     fringe_e = flat_east
     case = f'wfip_xm{abs(int(xmin))}to{int(xmax)}_ym{abs(int(ymin))}to{int(ymax)}_blendFlat3N3S3E3W_ff{fringe_flat_w}'
 
-    x1 = np.arange(xmin, xmax+ds, ds)
-    y1 = np.arange(ymin, ymax+ds, ds)
+    # x1 = np.arange(xmin, xmax+ds, ds)
+    # y1 = np.arange(ymin, ymax+ds, ds)
+    x1 = np.arange(xmin, xmax, ds)
+    y1 = np.arange(ymin, ymax, ds)
     xsurf,ysurf = np.meshgrid(x1, y1, indexing='ij')
     print('The output bounding box is')
     print('xmin: ',xsurf[0,0], '\nxmax: ',xsurf[-1,-1])
