@@ -8,6 +8,7 @@ import yaml
 from pathlib import Path
 from terrain import SRTM
 import numpy as np 
+import warnings 
 
 
 class amrBackend():
@@ -98,24 +99,46 @@ class amrBackend():
             self.caseWestFlat=1000
 
     def createDomain(self):
-        self.write_stl=self.yamlFile["writeTerrain"]
-        import SRTM_to_STL_example as converter
-        self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
-                                                    self.caseWest,self.caseEast,self.caseSouth,self.caseNorth, \
-                                                    self.caseWestSlope,self.caseEastSlope,self.caseSouthSlope,self.caseNorthSlope, \
-                                                    self.caseWestFlat,self.caseEastFlat,self.caseSouthFlat,self.caseNorthFlat, \
-                                                        self.write_stl)
+        try:
+            self.write_stl=self.yamlFile["writeTerrain"]
+        except:
+            self.write_stl=False
+        try:
+            self.terrainSTL=self.yamlFile["terrainSTL"]
+        except:
+            import SRTM_to_STL_example as converter
+            self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
+                                                        self.caseWest,self.caseEast,self.caseSouth,self.caseNorth, \
+                                                        self.caseWestSlope,self.caseEastSlope,self.caseSouthSlope,self.caseNorthSlope, \
+                                                        self.caseWestFlat,self.caseEastFlat,self.caseSouthFlat,self.caseNorthFlat, \
+                                                            self.write_stl)
+        else:
+            warnings.warn("Turbine or Met Mast Locations should be in STL coordinates. Not Lat/Lon")
+            self.xref=0
+            self.yref=0
+            self.zRef=0
         stlFile=Path(self.caseParent,self.caseName,"terrain.stl").as_posix()
         import pyvista as pv 
         mesh=pv.read(stlFile)
         x1=mesh.points[:,0]
         x2=mesh.points[:,1]
         x3=mesh.points[:,2]
+        for i in range(0,len(x3)):
+            x3[i]=max(x3[i],0.0)
         self.terrainX1=x1[:]
         self.terrainX2=x2[:]
         self.terrainX3=x3[:]
         if(not self.write_stl):
             Path(self.caseParent,self.caseName,"terrain.stl").unlink()
+        else:
+            print("Writing curvature")
+            mesh["curvature"]=mesh.curvature()
+            mesh["terrainHeight"]=x3
+            print(mesh["terrainHeight"])
+            Path(self.caseParent,self.caseName,"terrain.stl").unlink()
+            mesh.save(stlFile)
+
+
     
     def createAMRFiles(self):
         self.amrPrecursorFile=Path(self.caseParent,self.caseName,"precursor","precursor.inp").open("w")
@@ -170,8 +193,11 @@ class amrBackend():
         self.writeTerrainData(folder)
         self.writeRestart(self.amrTerrainFile)
         self.createAMRPrecursorSampling(self.amrPrecursorFile)
+        # Creating refinement regions 
+        self.writeRefinementRegions(self.amrTerrainFile)
+        self.writeAccelerationMaps(self.amrTerrainFile)
         # Terrain Monitoring and Refining 
-        self.metMastRefinement(self.amrTerrainFile)
+        #self.metMastRefinement(self.amrTerrainFile)
         #self.metMastMonitoring(self.amrTerrainFile)
 
     def createAMRGeometry(self,target,periodic=-1):
@@ -632,6 +658,103 @@ class amrBackend():
             mesh1=pv.Box(bounds=(xref[i]-1000,xref[i]+1000,yref[i]-1000,yref[i]+1000,zstart-16,zstart+zdist+100))
             fileName=Path(self.caseParent,self.caseName,"metMastGrid2"+str(i+1)+".vtk").as_posix()
             mesh1.save(fileName)
+
+    def writeRefinementRegions(self,target):
+        refinementRegions=self.yamlFile["refinementRegions"]
+        print(refinementRegions)
+        if(len(refinementRegions)==0):
+            return 
+        try:
+            refinementMinx=self.yamlFile["refinementMinX"]
+        except:
+            warnings.warn("Missing minimum X values. No refinements written")
+            return 
+        try:
+            refinementMaxx=self.yamlFile["refinementMaxX"]
+        except:
+            warnings.warn("Missing maximum X values. No refinements written")
+            return 
+        try:
+            refinementMiny=self.yamlFile["refinementMinY"]
+        except:
+            warnings.warn("Missing minimum Y values. No refinements written")
+            return 
+        try:
+            refinementMaxy=self.yamlFile["refinementMaxY"]
+        except:
+            warnings.warn("Missing maximum Y values. No refinements written")
+            return 
+        try:
+            refinementMinz=self.yamlFile["refinementMinZ"]
+        except:
+            refinementMinz=0*refinementMiny
+        try:
+            refinementMaxz=self.yamlFile["refinementMaxZ"]
+        except:
+            warnings.warn("Missing maximum Z values. No refinements written")
+            return 
+        try:
+            refinementLevels=self.yamlFile["refinementLevels"]
+        except:
+            warnings.warn("No refinement levels specified")
+            return 
+        try:
+            refinementLatLon=self.yamlFile["refinementLatLon"]
+        except:
+            refinementLatLon=False 
+        if(refinementLatLon):
+            warnings.warn("Currently not implemented")
+        target.write("# tagging\n")
+        for i in range(len(refinementRegions)):
+            if(i==0):
+                target.write("%-50s = %s "%("tagging.labels",refinementRegions[i]))
+            else:
+                target.write(" %s "%(refinementRegions[i]))
+        target.write("\n")
+        for i in range(len(refinementRegions)):
+            taggingstring="tagging."+refinementRegions[i]+".type"
+            target.write("%-50s = GeometryRefinement\n"%(taggingstring))
+            taggingstring="tagging."+refinementRegions[i]+".shapes"
+            target.write("%-50s = object%g\n"%(taggingstring,i))
+            taggingstring="tagging."+refinementRegions[i]+".min_level"          
+            target.write("%-50s = %g\n"%(taggingstring,0))
+            taggingstring="tagging."+refinementRegions[i]+".max_level"          
+            target.write("%-50s = %g\n"%(taggingstring,refinementLevels[i]))
+            taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".type"
+            target.write("%-50s = box\n"%(taggingstring))
+            taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".origin"
+            target.write("%-50s = %g %g %g\n"%(taggingstring, \
+                        refinementMinx[i],refinementMiny[i],refinementMinz[i]))
+            taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".xaxis"
+            target.write("%-50s = %g 0 0\n"%(taggingstring,
+                                             refinementMaxx[i]-refinementMinx[i]))
+            taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".yaxis"
+            target.write("%-50s = 0 %g 0\n"%(taggingstring,
+                                             refinementMaxy[i]-refinementMiny[i]))
+            taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".zaxis"
+            target.write("%-50s = 0 0 %g\n"%(taggingstring,
+                                             refinementMaxz[i]-refinementMinz[i]))
+            
+    def writeAccelerationMaps(self,target):
+        try:
+            writeTerrainSampling=self.yamlFile["writeTerrainSampling"]
+        except: 
+            return 
+        if(writeTerrainSampling):
+            offsets=self.yamlFile["verticalLevels"]
+            target.write("# postprocessing\n")
+            target.write("%-50s = %s\n"%("incflo.post_processing","sampling"))
+            target.write("%-50s = %s\n"%("sampling.labels","terrain"))
+            samplingentity="sampling.terrain.type"
+            target.write("%-50s = ProbeSampler\n"%(samplingentity))
+            samplingentity="sampling.terrain.probe_location_file"
+            target.write("%-50s = %s\n"%(samplingentity,'"terrain.csv"'))
+            samplingentity="sampling.terrain.offsets"
+            target.write("%-50s ="%(samplingentity))
+            for values in offsets:
+                target.write(" %g "%(values))
+            target.write("\n")
+
 
     def closeAMRFiles(self):
         self.amrPrecursorFile.close()
