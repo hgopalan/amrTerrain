@@ -660,8 +660,15 @@ class amrBackend():
             mesh1.save(fileName)
 
     def writeRefinementRegions(self,target):
-        refinementRegions=self.yamlFile["refinementRegions"]
-        print(refinementRegions)
+        try: 
+            refinementRegions=self.yamlFile["refinementRegions"]
+        except:
+            pass 
+        try:
+            metMastRegions=self.yamlFile["metMastNames"]
+        except:
+            if(len(refinementRegions)==0):
+                return 
         if(len(refinementRegions)==0):
             return 
         try:
@@ -710,8 +717,13 @@ class amrBackend():
                 target.write("%-50s = %s "%("tagging.labels",refinementRegions[i]))
             else:
                 target.write(" %s "%(refinementRegions[i]))
+        for i in range(len(metMastRegions)):
+            if(len(refinementRegions)==0):
+                target.write("%-50s = %s "%("tagging.labels",metMastRegions[i]))
+            else:
+                target.write(" %s "%(metMastRegions[i]))           
         target.write("\n")
-        for i in range(len(refinementRegions)):
+        for i in range(0,len(refinementRegions)):
             taggingstring="tagging."+refinementRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))
             taggingstring="tagging."+refinementRegions[i]+".shapes"
@@ -734,7 +746,53 @@ class amrBackend():
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".zaxis"
             target.write("%-50s = 0 0 %g\n"%(taggingstring,
                                              refinementMaxz[i]-refinementMinz[i]))
-            
+        
+        if(len(metMastRegions)==0):
+            return 
+        try:
+            metMastX=self.yamlFile["metMastX"]
+        except:
+            warnings.warn("Missing X values. No refinements written")
+            return    
+        try:
+            metMastY=self.yamlFile["metMastY"]
+        except:
+            warnings.warn("Missing Y values. No refinements written")
+            return        
+        try:
+            metMastRadius=self.yamlFile["metMastRadius"]
+        except:
+            metMastRadius=500+0*metMastX
+        try:
+            metMastRefinementLevel=self.yamlFile["metMastRefinementLevel"]
+        except:
+            metMastRefinementLevel=2+0*metMastX
+
+        for i in range(0,len(metMastRegions)):
+            taggingstring="tagging."+metMastRegions[i]+".type"
+            target.write("%-50s = GeometryRefinement\n"%(taggingstring))
+            taggingstring="tagging."+metMastRegions[i]+".shapes"
+            target.write("%-50s = metmastobject%g\n"%(taggingstring,i))
+            taggingstring="tagging."+metMastRegions[i]+".min_level"          
+            target.write("%-50s = %g\n"%(taggingstring,0))
+            taggingstring="tagging."+metMastRegions[i]+".max_level"          
+            target.write("%-50s = %g\n"%(taggingstring,metMastRefinementLevel[i]))
+            taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".type"
+            target.write("%-50s = cylinder \n"%(taggingstring))
+            taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".start"
+            target.write("%-50s = %g %g %g\n"%(taggingstring, \
+                        metMastX[i],metMastY[i],0))
+            taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".end"
+            target.write("%-50s = %g %g %g\n"%(taggingstring, \
+                        metMastX[i],metMastY[i],500))
+            taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".outer_radius"
+            target.write("%-50s = %g\n"%(taggingstring,metMastRadius[i]))
+            taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".inner_radius"
+            target.write("%-50s = %g\n"%(taggingstring,0.0))
+
+
+
+
     def writeAccelerationMaps(self,target):
         try:
             writeTerrainSampling=self.yamlFile["writeTerrainSampling"]
