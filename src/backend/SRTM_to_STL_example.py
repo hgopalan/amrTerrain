@@ -250,7 +250,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
         ax.set_ylabel('northing [m]')
         ax.set_title('blending function')
         ax.axis('scaled')
-        plt.show()
+        #plt.show()
 
 
     # In[33]:

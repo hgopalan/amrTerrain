@@ -18,9 +18,9 @@ class amrBackend():
         self.caseCellSize=128 
         self.caseverticalAR=8
         self.turbulence_model='RANS'
-        self.case_end_time=14400 
-        self.plotOutput=3600
-        self.restartOutput=3600
+        self.case_end_time=7200
+        self.plotOutput=1800
+        self.restartOutput=1800
         self.createCase()
 
     def createCase(self):
@@ -97,6 +97,8 @@ class amrBackend():
             self.caseWestFlat=self.yamlFile['westFlat']
         except:
             self.caseWestFlat=1000
+        # Optional
+        self.rans_1d=self.yamlFile["rans1D"]
 
     def createDomain(self):
         try:
@@ -170,6 +172,8 @@ class amrBackend():
         self.createAMRSourceTerm(self.amrPrecursorFile)    
         self.createAMRBC(self.amrPrecursorFile)
         self.createAMRTolerance(self.amrPrecursorFile)
+        if(self.rans_1d):
+            self.createAMR1dSolver()
         print(" Done creating precursor")
 
     def createTerrainFiles(self,folder):
@@ -192,6 +196,7 @@ class amrBackend():
         self.createAMRTolerance(self.amrTerrainFile,1)
         self.writeTerrainData(folder)
         self.writeRestart(self.amrTerrainFile)
+        self.fillrans1dinfo(self.amrTerrainFile)
         self.createAMRPrecursorSampling(self.amrPrecursorFile)
         # Creating refinement regions 
         self.writeRefinementRegions(self.amrTerrainFile)
@@ -208,7 +213,7 @@ class amrBackend():
         maxX=np.amax(self.terrainX1)
         maxY=np.amax(self.terrainX2)
         self.terrainZMax=np.amax(self.terrainX3)
-        # Add 1 km for ABL and 4 km for Rayleigh
+        # Add 1 km for ABL and 2 km for Rayleigh
         self.ABLHeight=1000
         self.RDLHeight=2000
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
@@ -354,13 +359,14 @@ class amrBackend():
         target.write("%-50s = netcdf\n"%("ABL.stats_output_format "))
         target.write("%-50s = %g\n"%("ABL.surface_roughness_z0 ",self.refRoughness))
         # Write Heights 
-        inversionHeight=round(self.terrainZMax,-3)+1000
-        inversionLayerThickness=round(self.terrainZMax,-3)+1000+100
-        lapseRate=0.003 
-        target.write("%-50s = %g %g %g %g %g \n"%("ABL.temperature_heights",0.0,round(self.terrainZMax,-3),inversionHeight,inversionLayerThickness,self.maxZ)) 
-        TRef=300
-        target.write("%-50s = %g %g %g %g %g "%("ABL.temperature_values ",TRef,TRef,TRef,TRef+5,TRef+5+lapseRate*(self.maxZ-inversionLayerThickness)))    
-        target.write("\n")
+        if(not self.rans_1d):
+            inversionHeight=round(self.terrainZMax,-3)+1000
+            inversionLayerThickness=round(self.terrainZMax,-3)+1000+100
+            lapseRate=0.003 
+            target.write("%-50s = %g %g %g %g %g \n"%("ABL.temperature_heights",0.0,round(self.terrainZMax,-3),inversionHeight,inversionLayerThickness,self.maxZ)) 
+            TRef=300
+            target.write("%-50s = %g %g %g %g %g "%("ABL.temperature_values ",TRef,TRef,TRef,TRef+5,TRef+5+lapseRate*(self.maxZ-inversionLayerThickness)))    
+            target.write("\n")
         target.write("%-50s = local\n"%("ABL.wall_shear_stress_type"))
         target.write("%-50s = %g\n"%("ABL.surface_temp_flux",self.refHeatFlux))
         if(iomode==0):
@@ -375,7 +381,7 @@ class amrBackend():
                 target.write("%-50s = xhi ylo \n"%("ABL.bndry_planes"))     
             elif(self.caseWindspeedX<0 and self.caseWindspeedY<0):
                 target.write("%-50s = xhi yhi \n"%("ABL.bndry_planes "))    
-            startTime=3600
+            startTime=1800
             target.write("%-50s = %g\n"%("ABL.bndry_output_start_time",startTime))
             if(self.turbulence_model=="RANS"):
                 target.write("%-50s = velocity temperature tke\n"%("ABL.bndry_var_names"))
@@ -569,6 +575,165 @@ class amrBackend():
         target.write("%-50s = 1.0e-8 \n"%("temperature_diffusion.mg_atol"))
         target.write("%-50s = 360 \n"%("nodal_proj.maxiter"))
     
+    def createAMR1dSolver(self):
+        import time 
+        start=time.time()
+        wind=self.yamlFile["metMastWind"]
+        mol_length=10000
+        allowed_error=12.5
+        metMastHeight=self.yamlFile["metMastHeight"]
+        metMastWind=[wind[0],wind[1]]
+        zheight=2048 
+        dz=4.0
+        npts=int(zheight/dz)
+        num_of_steps=1000
+        tolerance=1e-3
+        roughness_length=self.refRoughness
+        terrain_ht=0
+        coriolis=self.caseCenterLat
+        inv_height=0
+        inv_width=0
+        inv_strength=0
+        lapse_rate=0.01
+        heat_flux_mode=4
+        initial_ug=wind[0]
+        initial_vg=-0.5*wind[1]
+        include_ti=False
+        initial_ug,initial_vg,z0=self.generate_profile(allowed_error,metMastHeight,metMastWind,npts,zheight,roughness_length,terrain_ht, \
+                        coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
+                            initial_ug,initial_vg,include_ti)
+        end = time.time()
+        print("Coarse grid completed:",end-start)
+        self.fillrans1dinfo(self.amrPrecursorFile)
+
+    def fillrans1dinfo(self,target):
+        stringtowrite="ABL.initial_wind_profile"
+        target.write("%-50s = true\n"%(stringtowrite))
+        stringtowrite="ABL.rans_1dprofile_file"
+        target.write('%-50s = "rans_1d.info" \n'%(stringtowrite))
+        stringtowrite="ABL.meso_sponge_start "
+        target.write('%-50s = 650 \n'%(stringtowrite))
+
+        # Write for AMR-Wind 
+        data=np.genfromtxt(Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix())
+        zvals=data[:,0]
+        uvals=data[:,1]
+        vvals=data[:,2]
+        wvals=data[:,3]
+        tempvals=data[:,4]
+        tkevals=data[:,5]
+        for i in range(0,len(zvals)):
+            if(i==0):
+                stringtowrite="ABL.temperature_heights"
+                target.write("%-50s = %g"%(stringtowrite,zvals[i]))
+            else:
+                target.write("  %g "%(zvals[i]))
+        target.write(" %g \n"%(self.maxZ))
+        for i in range(0,len(zvals)):
+            if(i==0):
+                stringtowrite="ABL.temperature_values"
+                target.write("%-50s = %g"%(stringtowrite,tempvals[i]))
+            else:
+                target.write("  %g "%(tempvals[i]))
+        target.write(" %g \n"%(tempvals[i]))
+        newtarget=open(Path(self.caseParent,self.caseName,"precursor","rans_1d.info").as_posix(),"w")
+        for i in range(0,len(zvals)):
+            newtarget.write("%g %g %g %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+        newtarget.write("%g %g %g %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+        newtarget.close()
+        try:
+            newtarget=open(Path(self.caseParent,self.caseName,"terrain","rans_1d.info").as_posix(),"w")
+        except:
+            pass 
+        else:
+            for i in range(0,len(zvals)):
+                newtarget.write("%g %g %g %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+            newtarget.close()   
+        try:
+            newtarget=open(Path(self.caseParent,self.caseName,"terrainTurbine","rans_1d.info").as_posix(),"w")
+        except:
+            pass 
+        else:
+            for i in range(0,len(zvals)):
+                newtarget.write("%g %g %g %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+            newtarget.close()    
+
+    # Modify this function 
+    def generate_profile(self,allowed_error,metMastHeight,metMastWind,npts,zheight,roughness_length,terrain_ht, \
+                    coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
+                        initial_ug,initial_vg,include_ti=False):
+        # Generate Geostrphic Wind for Terrain Height  Consistent Wind Speed 
+        # Initial Guess of Geostropic Wind 
+        # Coarse grid run to identify close wind speed 
+        # A good initial guess reduces number of while loop iterations 
+        residualx=100
+        residualy=100 
+        # Initialize Grid Npts, Height, Roughness Length and Terrain Height for IB 
+        from amr1DSolver import amr1dSolver
+        pathToWrite=Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").open("w")
+        amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
+        ug=[initial_ug,initial_vg]
+        import time
+        while (residualx>allowed_error or residualy>allowed_error):
+            # Initialize Phyiscs: ux,uy,T,tke, ustar, pblh (can leave tke ustar and pblh to default value)
+            amr1D.initialize_physics(ug[0],ug[1],300,0.4,0.4,100)
+            # Coriolis 
+            amr1D.initialize_coriolis(coriolis)
+            # Temperature profile inversion height, width of strong inversion rate, strong inversion strength 
+            # and lapse rate (can leave at default)
+            amr1D.temperature_inversion(inv_height,inv_width,inv_strength,lapse_rate)
+            # Heat Flux model: 1 - Heat flux specified ; 2 - Surface temperature specified 
+            # 3 - Heating or cooling rate specified ; 4 - Monin Obukhov length specified 
+            amr1D.heat_flux_model(heat_flux_mode,mol_length)
+            # Simulation Iteration, Convergence Tolerance 
+            amr1D.run_simulation(num_of_steps,tolerance)
+            # Error calculation 
+            # Wind speed at the metMast 
+            z=amr1D.z
+            ux=amr1D.ux
+            uy=amr1D.uy
+            met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
+            met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
+            print("Met Mast Wind:[%g %g]"%(metMastWind[0],metMastWind[1]))
+            print("Specified Geostrophic Wind: [%g %g]"%(ug[0],ug[1]))
+            print("CFD Met Mast Wind and Error:[%g %g]  [%g %g]"%(met_mast_cfd_ux,met_mast_cfd_uy,met_mast_cfd_ux-metMastWind[0],met_mast_cfd_uy-metMastWind[1]))
+            tke=np.interp(metMastHeight,z,amr1D.tke)
+            M=np.sqrt(met_mast_cfd_ux**2+met_mast_cfd_uy**2)
+            print("TI:",np.sqrt(2.0/3.0*tke)/M*100)
+            residualx=abs(met_mast_cfd_ux-metMastWind[0])
+            residualy=abs(met_mast_cfd_uy-metMastWind[1])
+            # Reduce only the higher error to  speed-up 
+            if(residualx<allowed_error and residualy<allowed_error):
+                print("Coarse grid converged")
+                pass
+            elif(residualx>residualy):
+                if(metMastWind[0]>0):
+                    if(met_mast_cfd_ux>metMastWind[0]):
+                        ug[0]=ug[0]-max(0.5*residualx,allowed_error)
+                    else:
+                        ug[0]=ug[0]+max(0.5*residualx,allowed_error)
+                else:
+                    if(met_mast_cfd_ux<metMastWind[0]):
+                        ug[0]=ug[0]+max(0.5*residualx,allowed_error)
+                    else:
+                        ug[0]=ug[0]-max(0.5*residualx,allowed_error)
+            else:
+                if(metMastWind[1]>0):
+                    if(met_mast_cfd_uy>metMastWind[1]):
+                        ug[1]=ug[1]-max(0.5*residualy,allowed_error)
+                    else:
+                        ug[1]=ug[1]+max(0.5*residualy,allowed_error)
+                else:
+                    if(met_mast_cfd_uy<metMastWind[1]):
+                        ug[1]=ug[1]+max(0.5*residualy,allowed_error)
+                    else:
+                        ug[1]=ug[1]-max(0.5*residualy,allowed_error)
+        z0=roughness_length
+        return ug[0],ug[1],z0
+
+
     def createAMRPrecursorSampling(self,target):
         pass
         # x1=self.terrainX1.flatten(order='F')
@@ -667,7 +832,7 @@ class amrBackend():
         try:
             metMastRegions=self.yamlFile["metMastNames"]
         except:
-            if(len(refinementRegions)==0):
+            if(len(metMastRegions)==0):
                 return 
         if(len(refinementRegions)==0):
             return 
@@ -799,10 +964,27 @@ class amrBackend():
         except: 
             return 
         if(writeTerrainSampling):
-            offsets=self.yamlFile["verticalLevels"]
             target.write("# postprocessing\n")
-            target.write("%-50s = %s\n"%("incflo.post_processing","sampling"))
-            target.write("%-50s = %s\n"%("sampling.labels","terrain"))
+            target.write("%-50s = %s \n"%("incflo.post_processing","sampling"))
+            target.write("%-50s = velocity temperature \n"%("sampling.fields"))
+            target.write("%-50s = %s "%("sampling.labels","terrain"))
+        metMastRegions=[]
+        try:
+            metMastLineSampling=self.yamlFile["metMastLineSampling"]
+        except:
+            metMastLineSampling=False
+        else:
+            if(metMastLineSampling):
+                try:
+                    metMastRegions=self.yamlFile["metMastNames"]
+                except:
+                    pass
+                else:
+                    for i in range(0,len(metMastRegions)):
+                        target.write(" %s "%(metMastRegions[i]))
+        target.write("\n")
+        if(writeTerrainSampling):
+            offsets=self.yamlFile["verticalLevels"]
             samplingentity="sampling.terrain.type"
             target.write("%-50s = ProbeSampler\n"%(samplingentity))
             samplingentity="sampling.terrain.probe_location_file"
@@ -812,6 +994,27 @@ class amrBackend():
             for values in offsets:
                 target.write(" %g "%(values))
             target.write("\n")
+        if(metMastLineSampling and len(metMastRegions)>0):
+            metMastX=self.yamlFile["metMastX"]
+            metMastY=self.yamlFile["metMastY"]
+            for i in range(0,len(metMastRegions)):
+                samplingentity="sampling."+str(metMastRegions[i])+".type"
+                target.write("%-50s = LineSampler\n"%(samplingentity))
+                samplingentity="sampling."+str(metMastRegions[i])+".num_points"
+                target.write("%-50s = 50\n"%(samplingentity))
+                samplingentity="sampling."+str(metMastRegions[i])+".start"
+                zstart=0
+                # Find z from terrain 
+                error=10000
+                for ii in range(0,len(self.terrainX1)):
+                    residual=np.sqrt((metMastX[i]-self.terrainX1[ii])**2+(metMastY[i]-self.terrainX2[ii])**2)
+                    if(residual<error):
+                        zstart=self.terrainX3[ii]
+                zstart=zstart-20
+                target.write("%-50s = %g %g %g\n"%(samplingentity,metMastX[i],metMastY[i],zstart))
+                samplingentity="sampling."+str(metMastRegions[i])+".end"
+                target.write("%-50s = %g %g %g\n"%(samplingentity,metMastX[i],metMastY[i],zstart+200))
+
 
 
     def closeAMRFiles(self):
@@ -839,6 +1042,20 @@ class amrBackend():
         x1=xterrain.flatten(order='F')
         x2=yterrain.flatten(order='F')
         x3=zterrain.flatten(order='F')
+        print("Shape:",xterrain.shape)
+        target=Path(self.caseParent,self.caseName,folder,"terrain.amrwind.new").open("w")
+        target.write("%d\n"%(xterrain.shape[0]))
+        target.write("%d\n"%(yterrain.shape[0]))
+        xvals=np.linspace(min(x1),max(x1),xterrain.shape[0])
+        for i in range(0,len(xvals)):
+            target.write("%g\n"%(xvals[i]))
+        yvals=np.linspace(min(x2),max(x2),xterrain.shape[1]) 
+        for i in range(0,len(yvals)):
+            target.write("%g\n"%(yvals[i]))
+        for i in range(0,xterrain.shape[0]):
+            for j in range(0,xterrain.shape[1]):
+                target.write("%g\n"%(zterrain[i,j]))
+        target.close()
         target=Path(self.caseParent,self.caseName,folder,"terrain.amrwind").open("w")
         for i in range(0,len(x1)):
              target.write("%g %g %g\n"%(x1[i],x2[i],x3[i]))
