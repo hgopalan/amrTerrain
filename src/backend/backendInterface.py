@@ -187,7 +187,7 @@ class amrBackend():
         print("Creating Terrain Files")
         self.createAMRGeometry(self.amrTerrainFile,-1)
         self.createAMRGrid(self.amrTerrainFile)
-        self.createAMRTime(self.amrTerrainFile)
+        self.createAMRTime(self.amrTerrainFile,1)
         if(self.caseType=='terrainTurbine'):
             self.createSolverInfo(self.amrTerrainFile,1,1)
         else:
@@ -247,7 +247,7 @@ class amrBackend():
         target.write("%-50s = %g %g %g\n"%("amr.n_cell",nx,ny,nz))
         #target.write("%-50s = 0\n"%("amr.max_level"))
 
-    def createAMRTime(self,target):
+    def createAMRTime(self,target,blanking=-1):
         try:
             self.timeMethod=self.yamlFile['timeMethod']
         except:
@@ -287,11 +287,27 @@ class amrBackend():
         else:
             target.write('%-50s = %g\n'%("time.plot_time_interval",self.plotOutput))
             target.write("%-50s = %g\n"%("time.checkpoint_time_interval",self.restartOutput))
+        # Writing io 
+        target.write("%-50s = false \n"%("io.output_default_variables"))
+        if(self.turbulence_model=="RANS"):
+            target.write("%-50s = velocity temperature mu_turb tke pressure \n"%("io.outputs"))
+        else:
+            target.write("%-50s = velocity temperature mu_turb pressure \n"%("io.outputs"))
+        if(blanking==1):
+            target.write("%-50s = terrain_blank terrain_drag \n"%("io.int_outputs"))
 
     def createSolverInfo(self,target,terrain=-1,turbine=-1):
         self.caseWindspeedX=self.yamlFile['windX']
         self.caseWindspeedY=self.yamlFile['windY']
         self.caseWindspeedZ=self.yamlFile['windZ']   
+        try:
+            wind=self.yamlFile["metMastWind"]
+        except:
+            pass
+        else:
+            self.caseWindspeedX=wind[0]
+            self.caseWindspeedY=wind[1]
+            self.caseWindspeedZ=0.0
         try:
             self.fastBoxes=self.yamlFile['fastBoxes']      
         except:
@@ -1054,7 +1070,7 @@ class amrBackend():
             taggingstring="tagging."+metMastRegions[i]+".min_level"          
             target.write("%-50s = %g\n"%(taggingstring,0))
             taggingstring="tagging."+metMastRegions[i]+".max_level"          
-            target.write("%-50s = %g\n"%(taggingstring,max(metMastRefinementLevel[i])-1))
+            target.write("%-50s = %g\n"%(taggingstring,max(metMastRefinementLevel[i]-1,0)))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".type"
             target.write("%-50s = cylinder \n"%(taggingstring))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".start"
