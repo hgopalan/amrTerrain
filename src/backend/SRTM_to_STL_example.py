@@ -1,6 +1,6 @@
 def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
                    slope_west,slope_east,slope_south,slope_north, \
-                   flat_west,flat_east,flat_south,flat_north, \
+                   flat_west,flat_east,flat_south,flat_north, use_tiff, \
                    write_stl):
     import os
     import sys
@@ -61,6 +61,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     fringe_s = flat_south
     fringe_n = flat_north
     fringe_e = flat_east
+    tiffile=use_tiff
     case = f'wfip_xm{abs(int(xmin))}to{int(xmax)}_ym{abs(int(ymin))}to{int(ymax)}_blendFlat3N3S3E3W_ff{fringe_flat_w}'
 
     # x1 = np.arange(xmin, xmax+ds, ds)
@@ -75,8 +76,14 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
     # this will be downloaded:
     srtm_output=f'{outdir}/{case}.tif' # need absolute path for GDAL
+    if(tiffile==' '):
+        pass
+    else:
+        srtm_output=tiffile
+        print("SRTM:",srtm_output)
     srtm = SRTM(srtm_bounds, fpath=srtm_output, product=product)
-    srtm.download()
+    if(tiffile==' '):
+        srtm.download()
     x,y,z = srtm.to_terrain()
     xref,yref,_,_ = utm.from_latlon(*refloc[:2], force_zone_number=srtm.zone_number)
     vmin,vmax = 1500,2500

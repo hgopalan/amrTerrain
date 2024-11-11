@@ -65,6 +65,16 @@ class amr1dSolver:
         self.ustar=ref_ustar
         self.pblh=pblh
 
+    def return_heights(self):
+        return self.z
+
+    def return_windspeed(self):
+        return self.ux,self.uy
+
+    def reinitialize_windspeed(self,ux,uy):
+        self.ux=ux
+        self.uy=uy
+
     def initialize_coriolis(self,lat):
         omega=7.292115e-5
         self.coriolis=2*omega*np.sin(lat*np.pi/180)
@@ -80,7 +90,7 @@ class amr1dSolver:
         self.lapse_rate=rate 
 
 
-    def run_simulation(self,end_time,convergence=1e-4):
+    def run_simulation(self,end_time,convergence=1e-4,forceMetMastWind=False,metMastHeight=100,metMastX=10,metmastY=0):
         self.counter=0
         self.start_time=0
         self.err=convergence 
@@ -89,6 +99,13 @@ class amr1dSolver:
         self.counter=0
         self.end_time=end_time
         self.zloc=[]
+        if(forceMetMastWind):
+            self.zlist=[metMastHeight]
+            for i in range(0,len(self.zlist)):
+                self.zloc.append(np.abs(self.z - self.zlist[i]).argmin())
+                print("Index:",self.zloc)
+            self.uxlist=[metMastX]
+            self.vxlist=[metmastY]
         self.dt=0.8*(self.z[1]-self.z[0])/np.sqrt(self.ug**2+self.vg**2)
         self.errvelx=np.sum(self.ux)
         self.errvely=np.sum(self.uy)
@@ -118,12 +135,13 @@ class amr1dSolver:
         self.tkemean=self.tkemean/self.counter
         self.nutmean=self.nutmean/self.counter
         self.compute_zi()
-        #target=open("flow_field_MOL_"+str(self.mo_length)+".data","w")
+        target=open(self.writePath,"w")
         for i in range(0,len(self.z)):
-            self.writePath.write("%g %g %g %g %g %g %g %g \n"%(self.z[i]-self.terrain_height,self.ux[i],self.uy[i],0.0,self.temperature[i],self.tke[i],self.nut[i],self.lscale[i]))
-        self.writePath.close()
+            target.write("%g %g %g %g %g %g %g %g \n"%(self.z[i]-self.terrain_height,self.ux[i],self.uy[i],0.0,self.temperature[i],self.tke[i],self.nut[i],self.lscale[i]))
+        target.close()
         #self.print_instantaneous_results()
         #self.print_mean_results()
+    
 
     def run_fixed_pbl_simulation(self,end_time,convergence,zlist,uxlist,vxlist):
         self.zlist=zlist
@@ -187,7 +205,7 @@ class amr1dSolver:
         # print("MOL:",self.mo_length," Wind Speed at Ref Height:",RefHeight," is:",np.interp(RefHeight,self.z,self.ux),np.interp(RefHeight,self.z,self.uy))
         target=open("flow_field_MOL_"+str(self.mo_length)+".data","w")
         for i in range(0,len(self.z)):
-            self.writePatht.write("%g %g %g %g %g %g %g %g \n"%(self.z[i]-self.terrain_height,self.ux[i],self.uy[i],0.0,self.temperature[i],self.tke[i],self.nut[i],self.lscale[i]))
+            self.writePath.write("%g %g %g %g %g %g %g %g \n"%(self.z[i]-self.terrain_height,self.ux[i],self.uy[i],0.0,self.temperature[i],self.tke[i],self.nut[i],self.lscale[i]))
         self.writePath.close()
 
     def initialize_simulation(self):
@@ -404,8 +422,8 @@ class amr1dSolver:
         for j in range(0,len(self.zloc)):
             if(i==self.zloc[j]):
                 forcing=-(self.ux[i]-self.uxlist[j])/self.dt
-                if(self.counter%1==0):
-                    print("Forcing X:",self.start_time,self.dt,self.ux[i],self.uxlist[j])
+                # if(self.counter%1==0):
+                #     print("Forcing X:",self.start_time,self.dt,self.ux[i],self.uxlist[j])
         damping=coeff*(self.ug-self.ux[i])/20  
         self.ux[i]=self.ux[i]+dt*(term1+term2+coriolis+geostrophic+damping+forcing)
     
@@ -438,8 +456,8 @@ class amr1dSolver:
         for j in range(0,len(self.zloc)):
             if(i==self.zloc[j]):
                 forcing=-(self.uy[i]-self.vxlist[j])/self.dt
-                if(self.counter%500==0):
-                    print("Forcing Y:",self.uy[i],self.vxlist[j])
+                # if(self.counter%500==0):
+                #     print("Forcing Y:",self.uy[i],self.vxlist[j])
         self.uy[i]=self.uy[i]+dt*(term1+term2+coriolis+damping+geostrophic+forcing)
 
     def update_temperature(self,i,dt):
