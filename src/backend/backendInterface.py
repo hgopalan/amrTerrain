@@ -1099,6 +1099,7 @@ class amrBackend():
                 level=max(level,max(metMastRefinementLevel))
         stringtowrite="amr.max_level "
         target.write("%-50s = %d\n"%(stringtowrite,level))
+        self.amrPrecursorFile.write("%-50s = %d\n"%(stringtowrite,0))
 
 
 
