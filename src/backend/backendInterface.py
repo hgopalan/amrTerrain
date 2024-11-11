@@ -245,7 +245,7 @@ class amrBackend():
         print("dx,dz",self.caseCellSize,self.maxZ/nz)
         target.write("# Grid \n")
         target.write("%-50s = %g %g %g\n"%("amr.n_cell",nx,ny,nz))
-        target.write("%-50s = 0\n"%("amr.max_level"))
+        #target.write("%-50s = 0\n"%("amr.max_level"))
 
     def createAMRTime(self,target):
         try:
@@ -1009,7 +1009,7 @@ class amrBackend():
             taggingstring="tagging."+refinementRegions[i]+".min_level"          
             target.write("%-50s = %g\n"%(taggingstring,0))
             taggingstring="tagging."+refinementRegions[i]+".max_level"          
-            target.write("%-50s = %g\n"%(taggingstring,refinementLevels[i]))
+            target.write("%-50s = %g\n"%(taggingstring,max(refinementLevels[i]-1,0)))
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".type"
             target.write("%-50s = box\n"%(taggingstring))
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".origin"
@@ -1054,7 +1054,7 @@ class amrBackend():
             taggingstring="tagging."+metMastRegions[i]+".min_level"          
             target.write("%-50s = %g\n"%(taggingstring,0))
             taggingstring="tagging."+metMastRegions[i]+".max_level"          
-            target.write("%-50s = %g\n"%(taggingstring,metMastRefinementLevel[i]))
+            target.write("%-50s = %g\n"%(taggingstring,max(metMastRefinementLevel[i])-1))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".type"
             target.write("%-50s = cylinder \n"%(taggingstring))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".start"
@@ -1067,7 +1067,22 @@ class amrBackend():
             target.write("%-50s = %g\n"%(taggingstring,metMastRadius[i]))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".inner_radius"
             target.write("%-50s = %g\n"%(taggingstring,0.0))
-
+        if(len(refinementLevels)>0):
+            try:
+                refinementLevels=self.yamlFile["refinementLevels"]
+            except:
+                level=0
+            else: 
+                level=max(refinementLevels)
+        if(len(metMastRegions)>0):
+            try:
+                metMastRefinementLevel=self.yamlFile["metMastRefinementLevel"]
+            except:
+                level=max(level,2)
+            else:
+                level=max(level,max(metMastRefinementLevel))
+        stringtowrite="amr.max_level "
+        target.write("%-50s = %d\n"%(stringtowrite,level))
 
 
 
