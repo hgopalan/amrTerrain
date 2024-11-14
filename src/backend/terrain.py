@@ -102,6 +102,7 @@ class Terrain(object):
 
         # get source coordinate reference system, transform
         west, south, east, north = self.bounds
+        print("Bounds:",self.bounds)
         src_height, src_width = dem_raster.shape
         src_crs = dem_raster.crs
         src_transform = transform.from_bounds(*self.bounds, src_width, src_height)
@@ -278,6 +279,7 @@ class SRTM(Terrain):
             Decimal degree margin added to the bounds (default is 3")
             when clipping the downloaded elevation data.
         """
+        print("Bounds:",list(latlon_bounds))
         latlon_bounds = list(latlon_bounds)
         if margin is not None:
             latlon_bounds[0] -= margin

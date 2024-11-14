@@ -81,7 +81,7 @@ class amr1dSolver:
 
     def heat_flux_model(self,mode,value):
         self.heat_flux_mode=mode 
-        self.mode_value=value 
+        self.mode_value=float(value) 
 
     def temperature_inversion(self,height,width,strength,rate):
         self.delta_inversion=strength

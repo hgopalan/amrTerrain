@@ -1,7 +1,7 @@
 def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
                    slope_west,slope_east,slope_south,slope_north, \
                    flat_west,flat_east,flat_south,flat_north, use_tiff, \
-                   write_stl):
+                   write_stl,longmin,longmax,latmin,latmax):
     import os
     import sys
     import numpy as np
@@ -73,7 +73,8 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     print('xmin: ',xsurf[0,0], '\nxmax: ',xsurf[-1,-1])
     print('ymin: ',ysurf[0,0], '\nymax: ',ysurf[-1,-1])
     # Terrain region to clip from the digital elevation model (DEM)
-    srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
+    #srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
+    srtm_bounds = west, south, east, north = (refloc[1]+longmin,refloc[0]+latmin,refloc[1]+longmax,refloc[0]+latmax)
     # this will be downloaded:
     srtm_output=f'{outdir}/{case}.tif' # need absolute path for GDAL
     if(tiffile==' '):
@@ -331,36 +332,45 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
 
 
     # ## 6. Write out terrain surface STL
-    stlout = f'{outdir}/terrain.stl'
+    print(outdir,xsurf.shape)
+    import pyvista as pv 
+    x1=xsurf.flatten(order='F')
+    y1=ysurf.flatten(order='F')
+    z1=zblend.flatten(order='F')
+    data=np.column_stack([x1,y1,z1])
+    mesh=pv.PolyData(data)
+    vtkout = f'{outdir}/terrain.vtk'
+    mesh.save(vtkout)
+    #stlout = f'{outdir}/terrain.stl'
     # output 'zblend' surface - can skip blending step and just output 'zsrtm'
-    Npts = np.prod(xsurf.shape)
-    stlpoints = np.stack((xsurf.ravel(),
-                        ysurf.ravel(),
-                        zblend.ravel()),  # <-- output surface here
-                        axis=-1)
+    # Npts = np.prod(xsurf.shape)
+    # stlpoints = np.stack((xsurf.ravel(),
+    #                     ysurf.ravel(),
+    #                     zblend.ravel()),  # <-- output surface here
+    #                     axis=-1)
 
-    stlindices = np.reshape(np.arange(Npts), xsurf.shape)
-    Nx,Ny = xsurf.shape
-    Nfaces = (Nx-1)*(Ny-1)*2
+    # stlindices = np.reshape(np.arange(Npts), xsurf.shape)
+    # Nx,Ny = xsurf.shape
+    # Nfaces = (Nx-1)*(Ny-1)*2
 
-    surf = mesh.Mesh(np.zeros(Nfaces, dtype=mesh.Mesh.dtype))
-    iface = 0 
-    for i in range(Nx-1):
-        for j in range(Ny-1):
-            surf.vectors[iface,0,:] = stlpoints[stlindices[i,j],:]
-            surf.vectors[iface,1,:] = stlpoints[stlindices[i+1,j],:]
-            surf.vectors[iface,2,:] = stlpoints[stlindices[i+1,j+1],:]
-            surf.vectors[iface+1,0,:] = stlpoints[stlindices[i+1,j+1],:]
-            surf.vectors[iface+1,1,:] = stlpoints[stlindices[i,j+1],:]
-            surf.vectors[iface+1,2,:] = stlpoints[stlindices[i,j],:]
-            iface += 2
-    assert (iface == Nfaces)
-    #get_ipython().run_cell_magic('time', '', 'Nx,Ny = xsurf.shape\nNfaces = (Nx-1)*(Ny-1)*2\n\nsurf = mesh.Mesh(np.zeros(Nfaces, dtype=mesh.Mesh.dtype))\n\n#\n# manually define triangular faces for this simple quad mesh\n#\n# for iface, f in enumerate(faces):\n#     for dim in range(3):\n#         surf.vectors[iface][dim] = vertices[f[dim],:]\niface = 0 \nfor i in range(Nx-1):\n    for j in range(Ny-1):\n        surf.vectors[iface,0,:] = stlpoints[stlindices[i,j],:]\n        surf.vectors[iface,1,:] = stlpoints[stlindices[i+1,j],:]\n        surf.vectors[iface,2,:] = stlpoints[stlindices[i+1,j+1],:]\n        surf.vectors[iface+1,0,:] = stlpoints[stlindices[i+1,j+1],:]\n        surf.vectors[iface+1,1,:] = stlpoints[stlindices[i,j+1],:]\n        surf.vectors[iface+1,2,:] = stlpoints[stlindices[i,j],:]\n        iface += 2\nassert (iface == Nfaces)\n# CPU times: user 27.5 s, sys: 182 ms, total: 27.7 s\n# Wall time: 27.7 s\n')
-    dpath = os.path.dirname(stlout)
-    if (not dpath == '') and (not os.path.isdir(dpath)):
-        os.makedirs(dpath)
-        print('Created',dpath)
-    surf.save(stlout)
+    # surf = mesh.Mesh(np.zeros(Nfaces, dtype=mesh.Mesh.dtype))
+    # iface = 0 
+    # for i in range(Nx-1):
+    #     for j in range(Ny-1):
+    #         surf.vectors[iface,0,:] = stlpoints[stlindices[i,j],:]
+    #         surf.vectors[iface,1,:] = stlpoints[stlindices[i+1,j],:]
+    #         surf.vectors[iface,2,:] = stlpoints[stlindices[i+1,j+1],:]
+    #         surf.vectors[iface+1,0,:] = stlpoints[stlindices[i+1,j+1],:]
+    #         surf.vectors[iface+1,1,:] = stlpoints[stlindices[i,j+1],:]
+    #         surf.vectors[iface+1,2,:] = stlpoints[stlindices[i,j],:]
+    #         iface += 2
+    # assert (iface == Nfaces)
+    # #get_ipython().run_cell_magic('time', '', 'Nx,Ny = xsurf.shape\nNfaces = (Nx-1)*(Ny-1)*2\n\nsurf = mesh.Mesh(np.zeros(Nfaces, dtype=mesh.Mesh.dtype))\n\n#\n# manually define triangular faces for this simple quad mesh\n#\n# for iface, f in enumerate(faces):\n#     for dim in range(3):\n#         surf.vectors[iface][dim] = vertices[f[dim],:]\niface = 0 \nfor i in range(Nx-1):\n    for j in range(Ny-1):\n        surf.vectors[iface,0,:] = stlpoints[stlindices[i,j],:]\n        surf.vectors[iface,1,:] = stlpoints[stlindices[i+1,j],:]\n        surf.vectors[iface,2,:] = stlpoints[stlindices[i+1,j+1],:]\n        surf.vectors[iface+1,0,:] = stlpoints[stlindices[i+1,j+1],:]\n        surf.vectors[iface+1,1,:] = stlpoints[stlindices[i,j+1],:]\n        surf.vectors[iface+1,2,:] = stlpoints[stlindices[i,j],:]\n        iface += 2\nassert (iface == Nfaces)\n# CPU times: user 27.5 s, sys: 182 ms, total: 27.7 s\n# Wall time: 27.7 s\n')
+    # dpath = os.path.dirname(stlout)
+    # if (not dpath == '') and (not os.path.isdir(dpath)):
+    #     os.makedirs(dpath)
+    #     print('Created',dpath)
+    # surf.save(stlout)
     # surf.save(stlout, mode=mesh.stl.ASCII) # if ASCII STL is needed
     #print('Saved',stlout)
     #print(zblend[0,0])
