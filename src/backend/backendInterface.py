@@ -714,8 +714,13 @@ class amrBackend():
         stringtowrite="ABL.rans_1dprofile_file"
         target.write('%-50s = "rans_1d.info" \n'%(stringtowrite))
         zstart=max(max(self.terrainX3.flatten(order='F'))+768,1024)
-        stringtowrite="ABL.meso_sponge_start "
-        target.write('%-50s = %g \n'%(stringtowrite,zstart))
+        if(self.turbulence_model=="RANS"):
+            stringtowrite="ABL.meso_sponge_start "
+            target.write('%-50s = %g \n'%(stringtowrite,zstart))
+        else:
+            zstart=1e5
+            stringtowrite="ABL.meso_sponge_start "
+            target.write('%-50s = %g \n'%(stringtowrite,zstart))
 
         # Write for AMR-Wind 
         data=np.genfromtxt(Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix())
