@@ -244,6 +244,9 @@ class amrBackend():
         # Add 1 km for ABL and 2 km for Rayleigh
         self.ABLHeight=1024
         self.RDLHeight=2048
+        if(self.terrainZMax>self.ABLHeight):
+            print("Not enough blockage")
+            self.ABLHeight=2*self.ABLHeight
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
         print(self.maxZ)
         target.write("%-50s = %g %g %g \n"%("geometry.prob_lo",minX,minY,minZ))
@@ -645,7 +648,7 @@ class amrBackend():
         if(self.caseverticalAR==3 or self.caseverticalAR==4):
             self.smoothing=8
         elif(self.caseverticalAR>4 and self.caseverticalAR<=8):
-            self.smoothing=32
+            self.smoothing=16
         elif(self.caseverticalAR>8 and self.caseverticalAR<=16):
             self.smoothing=64
         if(self.caseverticalAR>=3):

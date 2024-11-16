@@ -1,9 +1,12 @@
 # This is experimental code. Need some cleaning in future. 
 from terrain import SRTM
 
-
-centerLat= 45.63374
-centerLon=-120.66047
+# WFIP2
+#centerLat= 45.63374
+#centerLon=-120.66047
+# Awaken 
+centerLat = 36.3606 
+centerLon = -97.403 
 dx=0.5
 latmin=centerLat-4.0
 latmax=centerLat+4.0
