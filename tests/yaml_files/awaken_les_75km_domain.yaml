@@ -1,0 +1,66 @@
+# Terrain 
+centerLat: 36.3606 
+centerLon: -97.403
+refHeight: 2184
+west: 37500
+east: 37500
+south: 37500
+north: 37500
+westSlope: 2500
+eastSlope: 2500
+northSlope: 2500 
+southSlope: 2500 
+westFlat: 2500
+eastFlat: 2500
+northFlat: 2500 
+southFlat: 2500 
+# Case Setup 
+solver: "amrWind"
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
+caseFolder: "awaken_les_75km_domain"
+caseType: "terrain"
+caseInitial: "amr"
+domainType: "center"
+# Physics and Numerics 
+windX: 10.0
+windY: 0.0 
+windZ: 0.0 
+refTemperature: 300.0
+refRoughness: 0.1
+refHeatflux: 0.0 
+molLength: 1e10
+turbulenceModel: "LES"
+turbineMarkType: "database"
+cellSize: 64
+verticalAR: 4
+terrainSize: 32
+# Refinements 
+refinementRegions: ["roi","outer"]
+refinementMinX: [-5000,-3000]
+refinementMaxX: [5000,3000]
+refinementMinY: [-5000,-3000]
+refinementMaxY: [5000,3000]
+refinementMinZ: [0,0]
+refinementMaxZ: [1000,500]
+refinementLevels: [1,2]
+# Masts and Turbines
+metMastNames: ["mast1","mast2","mast3"]
+metMastLatLon: false 
+metMastX: [-500,0,500]
+metMastY: [0,0,0]
+metMastRadius: [500,500,500]
+metMastRefinementLevel: [2,2,2]
+metMastWind: [9.0,5.0]
+metMastHeight: 100
+# Postprocessing 
+writeTerrainSampling: true 
+verticalLevels: [10,80,100,200]
+metMastLineSampling: true 
+# 1D Solver 
+rans1D: true
+allowedError: 0.25
+# STL Objects 
+writeTerrain: true
+# Comment out the line below and change path to use user-specified tiff file 
+useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/tiffiles/awaken/awaken.tif"
+
