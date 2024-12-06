@@ -346,6 +346,14 @@ class amrBackend():
             self.fastBoxes=self.yamlFile['fastBoxes']      
         except:
             self.fastBoxes=False
+        try:
+            self.caseWindspeedX=self.geostropicX
+        except:
+            pass 
+        try:
+            self.caseWindspeedY=self.geostropicY
+        except:
+            pass
         target.write("# incflo \n")
         if(terrain==1 and turbine==1):
             if(self.fastBoxes):
@@ -609,35 +617,43 @@ class amrBackend():
 
     def createAMRBC(self,target,inflowOutflow=-1):
         target.write("# BC \n")
+        boundaries=["xlo","xhi","ylo","yhi"]
         if(inflowOutflow==1):
-            if(self.caseWindspeedX>=0):
-                target.write('%-50s = "mass_inflow"\n'%("xlo.type "))
-                target.write("%-50s = 1.225\n"%("xlo.density"))
-                target.write("%-50s = 300\n"%("xlo.temperature"))
+            for boundary in boundaries:
+                target.write('%-50s = "mass_inflow_outflow"\n'%(boundary+".type "))
+                target.write("%-50s = 1.225\n"%(boundary+".density"))
+                target.write("%-50s = 300\n"%(boundary+".temperature"))
                 if(self.turbulence_model=="RANS"):
-                    target.write("%-50s = 0.1 \n"%("xlo.tke"))
-                target.write('%-50s = "pressure_outflow"\n'%("xhi.type"))
-            else:
-                target.write('%-50s = "mass_inflow"\n'%("xhi.type"))
-                target.write("%-50s = 1.225\n"%("xhi.density"))
-                target.write("%-50s = 300\n"%("xhi.temperature "))
-                if(self.turbulence_model=="RANS"):
-                    target.write("%-50s = 0.1 \n"%("xhi.tke"))
-                target.write('%-50s = "pressure_outflow"\n'%("xlo.type"))   
-            if(self.caseWindspeedY>=0):
-                target.write('%-50s = "mass_inflow"\n'%("ylo.type"))
-                target.write("%-50s = 1.225\n"%("ylo.density"))
-                target.write("%-50s = 300\n"%("ylo.temperature "))
-                if(self.turbulence_model=="RANS"):
-                    target.write("%-50s = 0.1 \n"%("ylo.tke"))
-                target.write('%-50s = "pressure_outflow"\n'%("yhi.type"))
-            else:
-                target.write('%-50s = "mass_inflow"\n'%("yhi.type"))
-                target.write("%-50s = 1.225\n"%("yhi.density"))
-                target.write("%-50s = 300\n"%("yhi.temperature "))
-                if(self.turbulence_model=="RANS"):
-                    target.write("%-50s = 0.1 \n"%("yhi.tke"))
-                target.write('%-50s = "pressure_outflow"\n'%("ylo.type"))  
+                    target.write("%-50s = 0.1 \n"%(boundary+".tke"))
+        #if(inflowOutflow==1):
+            # if(self.caseWindspeedX>=0):
+            #     target.write('%-50s = "mass_inflow"\n'%("xlo.type "))
+            #     target.write("%-50s = 1.225\n"%("xlo.density"))
+            #     target.write("%-50s = 300\n"%("xlo.temperature"))
+            #     if(self.turbulence_model=="RANS"):
+            #         target.write("%-50s = 0.1 \n"%("xlo.tke"))
+            #     target.write('%-50s = "pressure_outflow"\n'%("xhi.type"))
+            # else:
+            #     target.write('%-50s = "mass_inflow"\n'%("xhi.type"))
+            #     target.write("%-50s = 1.225\n"%("xhi.density"))
+            #     target.write("%-50s = 300\n"%("xhi.temperature "))
+            #     if(self.turbulence_model=="RANS"):
+            #         target.write("%-50s = 0.1 \n"%("xhi.tke"))
+            #     target.write('%-50s = "pressure_outflow"\n'%("xlo.type"))   
+            # if(self.caseWindspeedY>=0):
+            #     target.write('%-50s = "mass_inflow"\n'%("ylo.type"))
+            #     target.write("%-50s = 1.225\n"%("ylo.density"))
+            #     target.write("%-50s = 300\n"%("ylo.temperature "))
+            #     if(self.turbulence_model=="RANS"):
+            #         target.write("%-50s = 0.1 \n"%("ylo.tke"))
+            #     target.write('%-50s = "pressure_outflow"\n'%("yhi.type"))
+            # else:
+            #     target.write('%-50s = "mass_inflow"\n'%("yhi.type"))
+            #     target.write("%-50s = 1.225\n"%("yhi.density"))
+            #     target.write("%-50s = 300\n"%("yhi.temperature "))
+            #     if(self.turbulence_model=="RANS"):
+            #         target.write("%-50s = 0.1 \n"%("yhi.tke"))
+            #     target.write('%-50s = "pressure_outflow"\n'%("ylo.type"))  
         target.write('%-50s = "slip_wall"\n'%("zhi.type"))
         target.write('%-50s = "fixed_gradient"\n'%("zhi.temperature_type"))
         target.write("%-50s =  0.003\n"%("zhi.temperature"))
@@ -710,6 +726,8 @@ class amrBackend():
                         coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
                             initial_ug,initial_vg,include_ti)
         self.fillrans1dinfo(self.amrPrecursorFile)
+        self.geostropicX=initial_ug
+        self.geostropicY=initial_vg
 
     def fillrans1dinfo(self,target):
         stringtowrite="ABL.initial_wind_profile"
@@ -749,8 +767,8 @@ class amrBackend():
         target.write(" %g \n"%(tempvals[i]))
         newtarget=open(Path(self.caseParent,self.caseName,"precursor","rans_1d.info").as_posix(),"w")
         for i in range(0,len(zvals)):
-            newtarget.write("%g %g %g %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-        newtarget.write("%g %g %g %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+        newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
         newtarget.close()
         try:
             newtarget=open(Path(self.caseParent,self.caseName,"terrain","rans_1d.info").as_posix(),"w")
@@ -758,8 +776,8 @@ class amrBackend():
             pass 
         else:
             for i in range(0,len(zvals)):
-                newtarget.write("%g %g %g %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-            newtarget.write("%g %g %g %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+                newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
             newtarget.close()   
         try:
             newtarget=open(Path(self.caseParent,self.caseName,"terrainTurbine","rans_1d.info").as_posix(),"w")
@@ -767,8 +785,8 @@ class amrBackend():
             pass 
         else:
             for i in range(0,len(zvals)):
-                newtarget.write("%g %g %g %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-            newtarget.write("%g %g %g %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+                newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
             newtarget.close()    
 
     # Modify this function 
