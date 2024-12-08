@@ -198,7 +198,10 @@ class amrBackend():
         self.createAMRTransport(self.amrPrecursorFile)
         self.createAMRTurbulence(self.amrPrecursorFile)
         self.createAMRABLData(self.amrPrecursorFile,0,1) 
-        self.createAMRSourceTerm(self.amrPrecursorFile,1)    
+        if(self.turbulence_model=="RANS"):
+            self.createAMRSourceTerm(self.amrPrecursorFile,1)    
+        else:
+            self.createAMRSourceTerm(self.amrPrecursorFile) 
         self.createAMRBC(self.amrPrecursorFile)
         self.createAMRTolerance(self.amrPrecursorFile)
         print(" Done creating precursor")
