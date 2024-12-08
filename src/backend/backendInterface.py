@@ -127,7 +127,8 @@ class amrBackend():
                 eastlon=dataset.bounds[2]-self.caseCenterLon
                 southlat=dataset.bounds[1]-self.caseCenterLat
                 northlat=dataset.bounds[3]-self.caseCenterLat
-                print(westlon,eastlon,southlat,northlat)
+                print(dataset.bounds)
+                print(self.caseCenterLon,westlon,eastlon,self.caseCenterLat,southlat,northlat)
                 #exit(-1)
             self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
                                                         self.caseWest,self.caseEast,self.caseSouth,self.caseNorth, \
@@ -187,15 +188,19 @@ class amrBackend():
         self.createAMRGeometry(self.amrPrecursorFile,1)
         self.createAMRGrid(self.amrPrecursorFile)
         self.createAMRTime(self.amrPrecursorFile)
+        # Adding some patching 
+        self.refTemperature=self.yamlFile["refTemperature"]
+        self.refRoughness=self.yamlFile["refRoughness"]
+        self.refHeatFlux=self.yamlFile["refHeatflux"]        
+        if(self.rans_1d):
+            self.createAMR1dSolver()
         self.createSolverInfo(self.amrPrecursorFile)
         self.createAMRTransport(self.amrPrecursorFile)
         self.createAMRTurbulence(self.amrPrecursorFile)
         self.createAMRABLData(self.amrPrecursorFile,0,1) 
-        self.createAMRSourceTerm(self.amrPrecursorFile)    
+        self.createAMRSourceTerm(self.amrPrecursorFile,1)    
         self.createAMRBC(self.amrPrecursorFile)
         self.createAMRTolerance(self.amrPrecursorFile)
-        if(self.rans_1d):
-            self.createAMR1dSolver()
         print(" Done creating precursor")
 
     def createTerrainFiles(self,folder):
@@ -211,14 +216,14 @@ class amrBackend():
         self.createAMRTurbulence(self.amrTerrainFile)
         self.createAMRABLData(self.amrTerrainFile,1,0)  
         if(self.caseType=='terrainTurbine'):
-            self.createAMRSourceTerm(self.amrTerrainFile,1,1) 
+            self.createAMRSourceTerm(self.amrTerrainFile,-1,1,1) 
         else:
-            self.createAMRSourceTerm(self.amrTerrainFile,1)    
+            self.createAMRSourceTerm(self.amrTerrainFile,-1,1)    
         self.createAMRBC(self.amrTerrainFile,1)
         self.createAMRTolerance(self.amrTerrainFile,1)
         self.writeTerrainData(folder)
         self.writeRestart(self.amrTerrainFile)
-        self.fillrans1dinfo(self.amrTerrainFile)
+        self.fillrans1dinfo(self.amrTerrainFile,1)
         self.createAMRPrecursorSampling(self.amrPrecursorFile)
         # Creating refinement regions 
         self.writeRefinementRegions(self.amrTerrainFile)
@@ -438,14 +443,15 @@ class amrBackend():
             target.write('%-50s = "bndry_files"\n'%("ABL.bndry_file "))
             target.write("%-50s = 1\n"%("ABL.bndry_write_frequency"))
             target.write("%-50s = 0\n"%("ABL.bndry_io_mode"))
-            if(self.caseWindspeedX>=0 and self.caseWindspeedY>=0):
-                target.write("%-50s = xlo ylo \n"%("ABL.bndry_planes"))     
-            elif(self.caseWindspeedX>=0 and self.caseWindspeedY<0):
-                target.write("%-50s = xlo yhi \n"%("ABL.bndry_planes"))      
-            if(self.caseWindspeedX<0 and self.caseWindspeedY>=0):
-                target.write("%-50s = xhi ylo \n"%("ABL.bndry_planes"))     
-            elif(self.caseWindspeedX<0 and self.caseWindspeedY<0):
-                target.write("%-50s = xhi yhi \n"%("ABL.bndry_planes "))    
+            target.write("%-50s = xlo xhi ylo yhi \n"%("ABL.bndry_planes")) 
+            # if(self.caseWindspeedX>=0 and self.caseWindspeedY>=0):
+            #     target.write("%-50s = xlo ylo \n"%("ABL.bndry_planes"))     
+            # elif(self.caseWindspeedX>=0 and self.caseWindspeedY<0):
+            #     target.write("%-50s = xlo yhi \n"%("ABL.bndry_planes"))      
+            # if(self.caseWindspeedX<0 and self.caseWindspeedY>=0):
+            #     target.write("%-50s = xhi ylo \n"%("ABL.bndry_planes"))     
+            # elif(self.caseWindspeedX<0 and self.caseWindspeedY<0):
+            #     target.write("%-50s = xhi yhi \n"%("ABL.bndry_planes "))    
             startTime=600
             target.write("%-50s = %g\n"%("ABL.bndry_output_start_time",startTime))
             if(self.turbulence_model=="RANS"):
@@ -463,9 +469,12 @@ class amrBackend():
             target.write("%-50s = native\n"%("ABL.bndry_output_format"))
 
 
-    def createAMRSourceTerm(self,target,terrain=-1,turbine=-1):
+    def createAMRSourceTerm(self,target,sponge=-1,terrain=-1,turbine=-1):
         target.write("# Source\n")
-        forcingterms="ABLMeanBoussinesq BoussinesqBuoyancy RayleighDamping "
+        if(terrain==1 or turbine==1 or (sponge==1 and self.turbulence_model=="RANS")):
+            forcingterms="WindSpongeForcing ABLMeanBoussinesq BoussinesqBuoyancy  "
+        else:
+            forcingterms="ABLMeanBoussinesq BoussinesqBuoyancy RayleighDamping "
         try: 
             self.includeCoriolis=self.yamlFile["includeCoriolis"]
         except:
@@ -489,115 +498,9 @@ class amrBackend():
             target.write("%-50s = %g %g %g\n"%("GeostrophicForcing.geostrophic_wind",self.caseWindspeedX,self.caseWindspeedY,self.caseWindspeedZ))
         else:
             target.write("%-50s = %g \n"%("ABLForcing.abl_forcing_height",self.forcingHeight))
-        # try: 
-        #     self.includeCoriolis=self.yamlFile["includeCoriolis"]
-        # except:
-        #     self.includeCoriolis=False 
-        # if(self.turbulence_model=="RANS"):
-        #     if(self.includeCoriolis):
-        #         try:
-        #             self.forcingHeight=self.yamlFile["forcingHeight"]
-        #         except: 
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s  = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s  = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s  = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping \n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g %g %g\n"%("GeostrophicForcing.geostrophic_wind",self.caseWindspeedX,self.caseWindspeedY,self.caseWindspeedZ))
-        #         else:
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping \n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g \n"%("ABLForcing.abl_forcing_height",self.forcingHeight))
-        #     else:
-        #         try:
-        #             self.forcingHeight=self.yamlFile["forcingHeight"]
-        #         except: 
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping  DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s  = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s  = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping \n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g %g %g\n"%("GeostrophicForcing.geostrophic_wind",self.caseWindspeedX,self.caseWindspeedY,self.caseWindspeedZ))
-        #         else:
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping \n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g \n"%("ABLForcing.abl_forcing_height",self.forcingHeight))
-        # else:
-        #     if(self.includeCoriolis):
-        #         try:
-        #             self.forcingHeight=self.yamlFile["forcingHeight"]
-        #         except: 
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping NonLinearSGSTerm DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping NonLinearSGSTerm DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping NonLinearSGSTerm DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing GeostrophicForcing RayleighDamping NonLinearSGSTerm\n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g %g %g\n"%("GeostrophicForcing.geostrophic_wind",self.caseWindspeedX,self.caseWindspeedY,self.caseWindspeedZ))
-        #         else:
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping NonLinearSGSTerm DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping NonLinearSGSTerm DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping NonLinearSGSTerm DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy CoriolisForcing ABLForcing RayleighDamping NonLinearSGSTerm\n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g \n"%("ABLForcing.abl_forcing_height",self.forcingHeight))
-        #     else:
-        #         try:
-        #             self.forcingHeight=self.yamlFile["forcingHeight"]
-        #         except: 
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping NonLinearSGSTerm DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping NonLinearSGSTerm DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping NonLinearSGSTerm DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy GeostrophicForcing RayleighDamping NonLinearSGSTerm\n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g %g %g\n"%("GeostrophicForcing.geostrophic_wind",self.caseWindspeedX,self.caseWindspeedY,self.caseWindspeedZ))
-        #         else:
-        #             if(terrain==1 and turbine==1):
-        #                 if(self.fastBoxes):
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping NonLinearSGSTerm DragForcing  \n"%("ICNS.source_terms"))
-        #                 else:
-        #                     target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping NonLinearSGSTerm DragForcing ActuatorForcing \n"%("ICNS.source_terms"))
-        #             elif(terrain==1):    
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping NonLinearSGSTerm DragForcing\n"%("ICNS.source_terms"))
-        #             else:
-        #                 target.write("%-50s = ABLMeanBoussinesq BoussinesqBuoyancy ABLForcing RayleighDamping NonLinearSGSTerm\n"%("ICNS.source_terms"))
-        #             target.write("%-50s = %g \n"%("ABLForcing.abl_forcing_height",self.forcingHeight))
         if(terrain==1 or turbine==1):
             target.write('%-50s = "terrain.amrwind.new" \n'%("TerrainDrag.terrain_file"))
-            if(self.turbulence_model=="RANS"):
+            if(self.turbulence_model=="RANS" and sponge==1):
                 target.write("%-50s = TempSpongeForcing  DragTempForcing\n"%("Temperature.source_terms"))
             else:
                 target.write("%-50s = DragTempForcing\n"%("Temperature.source_terms"))
@@ -716,11 +619,32 @@ class amrBackend():
         inv_strength=0
         lapse_rate=0.003
         heat_flux_mode=4
-        initial_ug=wind[0]
-        if(self.caseCenterLat>0):
-            initial_vg=-max(wind[0],wind[1])*np.sin(self.caseCenterLat)
-        else:
-            initial_vg=max(wind[0],wind[1])*np.sin(self.caseCenterLat)
+        #initial_ug=wind[0]
+        #if(self.caseCenterLat>0):
+        #    initial_vg=max(wind[0],wind[1])*np.sin(self.caseCenterLat)
+        #else:
+        #    initial_vg=-max(wind[0],wind[1])*np.sin(self.caseCenterLat)
+        # Setting approximate Geostrophic Wind 
+        # https://www.researchgate.net/publication/230284417_Optimal_turbine_spacing_in_fully_developed_wind_farm_boundary_layers
+        # M=np.sqrt(wind[0]**2+wind[1]**2)
+        # ustar=M*0.41/np.log(self.metMastHeight/self.refRoughness)
+        # f=abs(2*7.27e-5*np.sin(self.caseCenterLat*np.pi/180))
+        # if(self.caseCenterLat>0):
+        #     initial_ug=ustar/0.41*np.log(ustar/(f*self.refRoughness))-4.5
+        #     initial_vg= -11.25*ustar
+        # else:
+        #     initial_ug=-ustar/0.41*np.log(ustar/(f*self.refRoughness))-4.5
+        #     initial_vg= 11.25*ustar  
+        # print(ustar,initial_ug,initial_vg)
+        # 
+        M=np.sqrt(wind[0]**2+wind[1]**2)
+        wt=4e-3*M
+        zi=1000.0
+        f=2*7.27e-5*np.sin(self.caseCenterLat*np.pi/180)
+        print(wt/(f*zi))
+        initial_ug=wind[0]+wt/(f*zi)*wind[1]
+        initial_vg=wind[1]-wt/(f*zi)*wind[0]
+        print(initial_ug,initial_vg)
         include_ti=False
         initial_ug,initial_vg,z0=self.generate_profile(allowed_error,self.metMastHeight,self.metMastWind,npts,zheight,roughness_length,terrain_ht, \
                         coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
@@ -729,17 +653,16 @@ class amrBackend():
         self.geostropicX=initial_ug
         self.geostropicY=initial_vg
 
-    def fillrans1dinfo(self,target):
+    def fillrans1dinfo(self,target,sponge=-1):
         stringtowrite="ABL.initial_wind_profile"
         target.write("%-50s = true\n"%(stringtowrite))
         stringtowrite="ABL.rans_1dprofile_file"
         target.write('%-50s = "rans_1d.info" \n'%(stringtowrite))
-        zstart=max(max(self.terrainX3.flatten(order='F'))+768,1024)
+        zstart=2000.0
         if(self.turbulence_model=="RANS"):
             stringtowrite="ABL.meso_sponge_start "
             target.write('%-50s = %g \n'%(stringtowrite,zstart))
         else:
-            zstart=1e5
             stringtowrite="ABL.meso_sponge_start "
             target.write('%-50s = %g \n'%(stringtowrite,zstart))
 

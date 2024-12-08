@@ -86,8 +86,15 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     if(tiffile==' '):
         srtm.download()
     x,y,z = srtm.to_terrain()
-    xref,yref,_,_ = utm.from_latlon(*refloc[:2], force_zone_number=srtm.zone_number)
+    xref,yref,_,_ = utm.from_latlon(*refloc[:2],force_zone_number=srtm.zone_number)
     vmin,vmax = 1500,2500
+    print(xref,yref)
+    print(np.amax(x),np.amin(x),np.amax(x)-np.amin(x))
+    print(np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
+    print("Center:",0.5*(np.amax(y)+np.amin(y)))
+    y=y+yref-0.5*(np.amax(y)+np.amin(y))
+    if(np.amin(z)<0):
+        z[z < 0] = 0
     if(write_stl):
         fig,ax = plt.subplots(figsize=(12,8))
         cm = ax.pcolormesh(x-xref, y-yref, z, cmap='terrain')#,vmin=vmin,vmax=vmax)
@@ -102,12 +109,11 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
         # bounding box for microscale region
         les = Rectangle((xmin,ymin), xmax-xmin, ymax-ymin, edgecolor='r', lw=3, facecolor='0.5', alpha=0.5)
         ax.add_patch(les)
-    #plt.show()
+
 
     # ### 3.1 Downscale to output grid
 
     # In[19]:
-
 
     interpfun = RectBivariateSpline(x[:,0]-xref, y[0,:]-yref, z)
 
@@ -117,8 +123,6 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
 
     # resampled SRTM data stored in 'zsrtm'
     zsrtm = interpfun(x1,y1,grid=True)
-
-
 
     # In[21]:
 
@@ -134,8 +138,8 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
         ax.axis('scaled')
 
         fig.savefig(f'{outdir}/elevation_srtm_{case}.png',dpi=150,bbox_inches='tight')
-
-
+    #plt.show()
+    #exit(-1)
     # ## 4. Get the low-resolution terrain from the mesoscale
     # This part is only relevant if the user chose to blen the high-resolution SRTM terrain data with WRF
 
@@ -268,6 +272,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # SRTM data is unlikely to be around the z=0 mark, so get the average 
     z0 = np.amin(zsrtm) #0 #np.mean(zsrtm)
     zflat = np.full(zsrtm.shape,z0)
+
 
 
     # In[34]:
