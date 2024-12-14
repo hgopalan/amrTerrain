@@ -54,9 +54,7 @@ class amr1dSolver:
         self.Qb=0
         self.ref_mol=-1e+30
         self.lscale=np.zeros(self.nz)
-        omega=7.292115e-5
-        self.coriolis=2*omega*np.sin(45*np.pi/180)
-        self.geostrophic=self.coriolis
+        self.coriolis=0
         self.ustar=0.41
         self.thetastar=0.0
         self.phiM=1
@@ -324,7 +322,7 @@ class amr1dSolver:
             dudz=1/self.dz*(self.ux[i+1]-self.ux[i])
         term2=0.5/self.dz*(self.nut[i+1]-self.nut[i-1])*dudz
         coriolis=self.coriolis*(self.uy[i])
-        geostrophic=-self.geostrophic*self.vg
+        geostrophic=-self.coriolis*self.vg
         # Forcing 
         forcing=0
         for j in range(0,len(self.zloc)):
@@ -340,7 +338,7 @@ class amr1dSolver:
             dvdz=1/self.dz*(self.uy[i+1]-self.uy[i])
         term2=0.5/self.dz*(self.nut[i+1]-self.nut[i-1])*dvdz
         coriolis=-self.coriolis*(self.ux[i])
-        geostrophic=self.geostrophic*self.ug
+        geostrophic=self.coriolis*self.ug
         # Forcing 
         forcing=0
         for j in range(0,len(self.zloc)):

@@ -734,7 +734,7 @@ class amrBackend():
         pathToWrite=Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix()
         # Coarse Run 
         zheight=2048
-        dz=32.0
+        dz=16.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
         ug=[initial_ug,initial_vg]
