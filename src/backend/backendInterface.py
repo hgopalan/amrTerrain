@@ -645,8 +645,12 @@ class amrBackend():
         zi=1000.0
         f=2*7.27e-5*np.sin(self.caseCenterLat*np.pi/180)
         print(wt/(f*zi))
-        initial_ug=wind[0]+wt/(f*zi)*wind[1]
-        initial_vg=wind[1]-wt/(f*zi)*wind[0]
+        if(self.caseCenterLat<10):
+            initial_ug=wind[0]
+            initial_vg=wind[1]
+        else:
+            initial_ug=wind[0]+wt/(f*zi)*wind[1]
+            initial_vg=wind[1]-wt/(f*zi)*wind[0]
         print(initial_ug,initial_vg)
         include_ti=False
         initial_ug,initial_vg,z0=self.generate_profile(allowed_error,self.metMastHeight,self.metMastWind,npts,zheight,roughness_length,terrain_ht, \
@@ -730,7 +734,7 @@ class amrBackend():
         pathToWrite=Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix()
         # Coarse Run 
         zheight=2048
-        dz=16.0
+        dz=32.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
         ug=[initial_ug,initial_vg]
@@ -738,7 +742,7 @@ class amrBackend():
         start=time.time()
         while (residualx>allowed_error or residualy>allowed_error):
             # Initialize Phyiscs: ux,uy,T,tke, ustar, pblh (can leave tke ustar and pblh to default value)
-            amr1D.initialize_physics(ug[0],ug[1],300,0.4,0.4,100)
+            amr1D.initialize_physics(ug[0],ug[1],300,0.4,0.4,1000)
             # Coriolis 
             amr1D.initialize_coriolis(coriolis)
             # Temperature profile inversion height, width of strong inversion rate, strong inversion strength 
@@ -775,7 +779,8 @@ class amrBackend():
             if(residualx<allowed_error and residualy<allowed_error):
                 print("Coarse grid converged")
                 pass
-            elif(residualx>residualy):
+            #elif(residualx>residualy):
+            else:
                 if(metMastWind[0]>0):
                     if(met_mast_cfd_ux>metMastWind[0]):
                         ug[0]=ug[0]-max(0.5*residualx,allowed_error)
@@ -786,7 +791,7 @@ class amrBackend():
                         ug[0]=ug[0]+max(0.5*residualx,allowed_error)
                     else:
                         ug[0]=ug[0]-max(0.5*residualx,allowed_error)
-            else:
+            #else:
                 if(metMastWind[1]>0):
                     if(met_mast_cfd_uy>metMastWind[1]):
                         ug[1]=ug[1]-max(0.5*residualy,allowed_error)

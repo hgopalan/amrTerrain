@@ -1,16 +1,16 @@
 solver: "amrWind"
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "reunion_90km_les_domain"
+caseFolder: "Singapore_80km_les_domain"
 caseType: "terrain"
 caseInitial: "amr"
 domainType: "center"
-centerLat: -21.1
-centerLon: 55.52
+centerLat: 1.35
+centerLon: 103.8198
 refHeight: 0
-west: 45000
-east: 45000
-south: 45000
-north: 45000
+west: 30000
+east: 30000
+south: 30000
+north: 30000
 westSlope: 2500
 eastSlope: 2500
 northSlope: 2500 
@@ -30,7 +30,6 @@ refTemperature: 300.0
 refRoughness: 0.1
 refHeatflux: 0.0 
 turbineMarkType: "database"
-includeCoriolis: true
 writeTerrain: true
 rans1D: true
 writeTerrainSampling: true 
@@ -50,9 +49,9 @@ metMastY: [0,0,0]
 metMastRadius: [500,500,500]
 metMastRefinementLevel: [0,0,0]
 metMastLineSampling: true 
-metMastWind: [-8.0,4.0]
+metMastWind: [12.0,2.0]
 metMastHeight: 100
 molLength: 1e10
 allowedError: 0.5
 # Comment out the line below and change path to use user-specified tiff file 
-useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/tiffiles/reunion/output_SRTMGL1.tif"
+#useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/tiffiles/reunion/output_SRTMGL1.tif"

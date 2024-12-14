@@ -88,13 +88,17 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     x,y,z = srtm.to_terrain()
     xref,yref,_,_ = utm.from_latlon(*refloc[:2],force_zone_number=srtm.zone_number)
     vmin,vmax = 1500,2500
+    if(refloc[0]<0):
+        yref=yref-10000000
     print(xref,yref)
     print(np.amax(x),np.amin(x),np.amax(x)-np.amin(x))
     print(np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
+    #y=y+yref-0.5*(np.amax(y)+np.amin(y))
     print("Center:",0.5*(np.amax(y)+np.amin(y)))
-    y=y+yref-0.5*(np.amax(y)+np.amin(y))
+    print("After mixing:",np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
     if(np.amin(z)<0):
         z[z < 0] = 0
+    #exit(-1)
     if(write_stl):
         fig,ax = plt.subplots(figsize=(12,8))
         cm = ax.pcolormesh(x-xref, y-yref, z, cmap='terrain')#,vmin=vmin,vmax=vmax)

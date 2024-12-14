@@ -11,8 +11,18 @@ from joblib import Parallel, delayed
 class amr1dSolver:
 
     def __init__(self,nz,zupper,z0,terrain,pathToWrite):
+        self.setupgrid(nz,zupper)
+        self.initialize_variables()
+        self.allocate_memory()
+        self.allocate_mean_memory()
+        self.z0=z0
+        self.initialize_remaining_variables(terrain,pathToWrite)
+
+    def setupgrid(self,nz,zupper):
         self.zupper=zupper
         self.nz=nz
+    
+    def initialize_variables(self):
         self.ug=10
         self.vg=0
         self.t_ref=300
@@ -20,7 +30,8 @@ class amr1dSolver:
         self.inversion_height=468
         self.inversion_width=83
         self.lapse_rate=0.003
-        self.z0=z0
+    
+    def allocate_memory(self):
         self.ux=np.zeros(self.nz)
         self.uy=np.zeros(self.nz)
         self.temperature=np.zeros(self.nz)
@@ -29,11 +40,15 @@ class amr1dSolver:
         self.nutPrime=np.zeros(self.nz)
         self.sigmaT=np.zeros(self.nz)
         self.Rt=np.zeros(self.nz)
+
+    def allocate_mean_memory(self):
         self.umean=np.zeros(self.nz)
         self.vmean=np.zeros(self.nz)
         self.tmean=np.zeros(self.nz)
         self.tkemean=np.zeros(self.nz)
         self.nutmean=np.zeros(self.nz)
+
+    def initialize_remaining_variables(self,terrain,pathToWrite):
         self.pblh=1000
         self.Qh=0
         self.Qb=0
@@ -55,8 +70,7 @@ class amr1dSolver:
         self.terrain_height=terrain
         self.lower=np.abs(self.z - terrain).argmin()
         self.writePath=pathToWrite
-        #print(self.terrain_height,self.z[self.lower])
-    
+
     def initialize_physics(self,ug,vg,t_ref,tke_init,ref_ustar,pblh):
         self.ug=ug
         self.vg=vg
@@ -113,7 +127,6 @@ class amr1dSolver:
         self.errnut=np.sum(self.nut)
         self.errtemp=np.sum(self.temperature)
         while(self.start_time<=self.end_time):
-            #print(self.start_time,self.ux[0],np.max(self.nut),np.max(self.tke),np.min(self.Rt),np.max(self.Rt),self.ustar)
             self.start_time+=self.dt
             self.compute_similarity()
             for i in range(self.lower+1,self.nz-1):
@@ -139,74 +152,6 @@ class amr1dSolver:
         for i in range(0,len(self.z)):
             target.write("%g %g %g %g %g %g %g %g \n"%(self.z[i]-self.terrain_height,self.ux[i],self.uy[i],0.0,self.temperature[i],self.tke[i],self.nut[i],self.lscale[i]))
         target.close()
-        #self.print_instantaneous_results()
-        #self.print_mean_results()
-    
-
-    def run_fixed_pbl_simulation(self,end_time,convergence,zlist,uxlist,vxlist):
-        self.zlist=zlist
-        self.uxlist=uxlist
-        self.vxlist=vxlist
-        self.zloc=np.zeros(len(self.zlist))
-        self.coriolis=0.0
-        for i in range(0,len(self.zlist)):
-            self.zloc[i]=np.abs(self.z - self.zlist[i]).argmin()
-            print(self.zloc[i],self.z[int(self.zloc[i])])
-        self.counter=0
-        self.start_time=0
-        self.err=convergence 
-        self.converge=False 
-        self.initialize_simulation()
-        self.counter=0
-        self.end_time=end_time
-        self.dt=0.8*(self.z[1]-self.z[0])/np.sqrt(self.ug**2+self.vg**2)
-        from joblib import Parallel, delayed
-        self.errvelx=np.sum(self.ux)
-        self.errvely=np.sum(self.uy)
-        self.errtke=np.sum(self.tke)
-        self.errnut=np.sum(self.nut)
-        self.errtemp=np.sum(self.temperature)
-        while(self.start_time<=self.end_time):
-            #print(self.start_time,self.ux[0],np.max(self.nut),np.max(self.tke),np.min(self.Rt),np.max(self.Rt),self.ustar)
-            self.start_time+=self.dt
-            self.compute_similarity()
-            results = Parallel(n_jobs=1)(delayed(self.update_windspeed_x)(i,self.dt) for i in range(self.lower+1,self.nz-1))
-            results = Parallel(n_jobs=1)(delayed(self.update_windspeed_y)(i,self.dt) for i in range(self.lower+1,self.nz-1))
-            results = Parallel(n_jobs=1)(delayed(self.update_temperature)(i,self.dt) for i in range(self.lower+1,self.nz-1))
-            # for fixed PBL do not use 1-Equation model
-            for i in range(1,self.nz-1): 
-                self.nut[i]=self.ustar*0.41*min(self.z[i],0.9*self.pblh)*(1-min(0.9*self.pblh,self.z[i])/self.pblh)**2
-                self.lscale[i]=0.41*min(self.z[i],0.9*self.pblh)*(1-min(0.9*self.pblh,self.z[i])/self.pblh)**2
-                self.tke[i]=1e-4
-            #results = Parallel(n_jobs=1)(delayed(self.update_turbulence)(i,self.dt) for i in range(1,self.nz-1))
-            #self.update_windspeed_x(self.dt)
-            #self.update_windspeed_y(self.dt)
-            #self.update_temperature(self.dt)
-            #self.update_turbulence(self.dt)
-            self.dt=0.8*(self.z[1]-self.z[0])/np.sqrt(max(self.ux)**2+max(self.uy)**2)
-            self.counter+=1
-            self.compute_average()
-            self.compute_error()
-            if(self.converge):
-                print("Converged:")
-                break
-            if(self.dt<0.01):
-                print("Diverged:")
-                break
-        # Normalize Average 
-        self.umean=self.umean/self.counter
-        self.vmean=self.vmean/self.counter
-        self.tmean=self.tmean/self.counter
-        self.tkemean=self.tkemean/self.counter
-        self.nutmean=self.nutmean/self.counter
-        self.compute_zi()
-        M=np.sqrt(self.ux**2+self.uy**2)
-        # RefHeight=150
-        # print("MOL:",self.mo_length," Wind Speed at Ref Height:",RefHeight," is:",np.interp(RefHeight,self.z,self.ux),np.interp(RefHeight,self.z,self.uy))
-        target=open("flow_field_MOL_"+str(self.mo_length)+".data","w")
-        for i in range(0,len(self.z)):
-            self.writePath.write("%g %g %g %g %g %g %g %g \n"%(self.z[i]-self.terrain_height,self.ux[i],self.uy[i],0.0,self.temperature[i],self.tke[i],self.nut[i],self.lscale[i]))
-        self.writePath.close()
 
     def initialize_simulation(self):
         for i in range(0,self.nz):
@@ -221,21 +166,11 @@ class amr1dSolver:
                     self.temperature[i]=self.t_ref
                 else:
                     self.temperature[i]=self.temperature[i-1]+self.lapse_rate*max(self.z[i]-self.z[i-1],0.0)
-            # if(self.z[i]<self.pblh):
-            #     zval=max(self.z)
-            #     self.tke[i]=self.tke_init*(1-self.z[i]/self.pblh)**3+1e-20
-            #     self.nut[i]=self.ustar*0.4*self.z[i]*(1-self.z[i]/self.pblh)**2+1e-5
-            #     self.lscale[i]=0.4*self.z[i]*(1-self.z[i]/self.pblh)**2+1e-5
-            # else:
-            #     self.tke[i]=self.tke[i-1]
-            #     self.nut[i]=self.nut[i-1]
-            #     self.lscale[i]=self.lscale[i-1]
             self.nut[i]=1e-5
             self.tke[i]=0.1
             self.lscale[i]=0.1
             self.nutPrime[i]=self.nut[i]
             self.sigmaT[i]=1.0
-            #print(self.z[i],self.temperature[i])
         if(self.lower==0):
             pass
         else:
@@ -245,10 +180,6 @@ class amr1dSolver:
             self.nut[0:self.lower]*=0.0
             self.tke[0:self.lower]*=0.0
             self.lscale[0:self.lower]*=0.0
-            #print("IC:",self.z[i],self.temperature[i],self.tke[i],self.nut[i])
-        # print("Flux:",self.Qh)
-        #exit(-1)
-
 
     def compute_similarity(self):
         M1=np.sqrt(self.ux[self.lower+1]**2+self.uy[self.lower+1]**2)
@@ -384,96 +315,51 @@ class amr1dSolver:
             self.temperature[0:self.lower]=self.temperature[self.lower]+0*self.temperature[0:self.lower]
             self.nut[0:self.lower]*=0.0
             self.tke[0:self.lower]*=0.0
-        #if(self.counter%2000==0):
-            #print("%g %g %g %g %g %g %g"%(self.start_time,max(self.nut),max(self.tke), \
-                                             #self.mo_length,self.temperature[self.lower],self.temperature[1],self.ustar)
-            #print(self.Qh)
-            #print("Coriolis:",np.min(-self.coriolis*(self.ux-self.ug)),self.coriolis)
-            # Check 
-            # ltmax=0.00027*np.sqrt(self.ug**2+self.vg**2)/self.coriolis  
-            # myjlt=0.23*np.sum(self.tke*self.z)/np.sum(self.tke)
-            # print("LS:",ltmax,myjlt)  
 
     def update_windspeed_x(self,i,dt):
-        dFull=100
-        dRD=50
-        # for i in range(1,self.nz-1):
-        if (self.zupper - self.z[i] > dRD + dFull): 
-            coeff = 0.0
-        elif (self.zupper - self.z[i] > dFull):
-            coeff = 0.5 * np.cos(np.pi * (self.zupper- dFull - self.z[i]) / dRD) + 0.5
-        else:
-            coeff = 1.0
         term1=self.nut[i]*(self.ux[i+1]-2*self.ux[i]+self.ux[i-1])/self.dz**2
         if(i==1):
-            #dudz=0.5/self.dz*(self.ux[i+1]-self.ux[i-1])
             dudz=1/self.dz*(self.ux[i+1]-self.ux[i])
         else:
-            #dudz=0.5/self.dz*(self.ux[i+1]-self.ux[i-1])
             dudz=1/self.dz*(self.ux[i+1]-self.ux[i])
         term2=0.5/self.dz*(self.nut[i+1]-self.nut[i-1])*dudz
         coriolis=self.coriolis*(self.uy[i])
         geostrophic=-self.geostrophic*self.vg
         # Forcing 
         forcing=0
-        # forcing_loc=np.abs(self.z - 150).argmin()
-        # if(i==forcing_loc):
-        #     forcing=-(self.ux[i]-8.24)/self.dt
         for j in range(0,len(self.zloc)):
             if(i==self.zloc[j]):
-                forcing=-(self.ux[i]-self.uxlist[j])/self.dt
-                # if(self.counter%1==0):
-                #     print("Forcing X:",self.start_time,self.dt,self.ux[i],self.uxlist[j])
-        damping=coeff*(self.ug-self.ux[i])/20  
-        self.ux[i]=self.ux[i]+dt*(term1+term2+coriolis+geostrophic+damping+forcing)
+                forcing=-(self.ux[i]-self.uxlist[j])/self.dt  
+        self.ux[i]=self.ux[i]+dt*(term1+term2+coriolis+geostrophic+forcing)
     
     def update_windspeed_y(self,i,dt):
-        dFull=100
-        dRD=50
-        #for i in range(1,self.nz-1):
-        if (self.zupper - self.z[i] > dRD + dFull): 
-            coeff = 0.0
-        elif (self.zupper - self.z[i] > dFull):
-            coeff = 0.5 * np.cos(np.pi * (self.zupper- dFull - self.z[i]) / dRD) + 0.5
-        else:
-            coeff = 1.0
         term1=self.nut[i]*(self.uy[i+1]-2*self.uy[i]+self.uy[i-1])/self.dz**2
         if(i==1):
             dvdz=1/self.dz*(self.uy[i+1]-self.uy[i])
-            #dvdz=0.5/self.dz*(self.uy[i+1]-self.uy[i-1])
         else:
             dvdz=1/self.dz*(self.uy[i+1]-self.uy[i])
-            #dvdz=0.5/self.dz*(self.uy[i+1]-self.uy[i-1])
         term2=0.5/self.dz*(self.nut[i+1]-self.nut[i-1])*dvdz
         coriolis=-self.coriolis*(self.ux[i])
         geostrophic=self.geostrophic*self.ug
-        damping=coeff*(self.vg-self.uy[i])/20
         # Forcing 
         forcing=0
-        # forcing_loc=np.abs(self.z - 150).argmin()
-        # if(i==forcing_loc):
-        #     forcing=-(self.uy[i]-5.74)/self.dt
         for j in range(0,len(self.zloc)):
             if(i==self.zloc[j]):
                 forcing=-(self.uy[i]-self.vxlist[j])/self.dt
-                # if(self.counter%500==0):
-                #     print("Forcing Y:",self.uy[i],self.vxlist[j])
-        self.uy[i]=self.uy[i]+dt*(term1+term2+coriolis+damping+geostrophic+forcing)
+        self.uy[i]=self.uy[i]+dt*(term1+term2+coriolis+geostrophic+forcing)
 
     def update_temperature(self,i,dt):
-        #for i in range(1,self.nz-1):
         term1=self.nut[i]/self.sigmaT[i]*(self.temperature[i+1]-2*self.temperature[i]+self.temperature[i-1])/self.dz**2
         term2=1/self.dz*(self.nut[i]/self.sigmaT[i]-self.nut[i-1]/self.sigmaT[i-1])*1/self.dz*(self.temperature[i]-self.temperature[i-1])
         self.temperature[i]=self.temperature[i]+dt*(term1+term2)
 
     def update_turbulence(self,i,dt):
-        #for i in range(1,self.nz-1):
         term1=self.nut[i]*(self.tke[i+1]-2*self.tke[i]+self.tke[i-1])/self.dz**2
         term2=1/self.dz*(self.nut[i]-self.nut[i-1])*1/self.dz*(self.tke[i]-self.tke[i-1])
         production=self.nut[i]*(1/self.dz)**2*((self.ux[i]-self.ux[i-1])**2+(self.uy[i]-self.uy[i-1])**2)
         # Original RANS Model 
         lturb=0.41*(self.z[i]-self.z[self.lower])
-        lmax=0.00027*np.sqrt(self.ug**2+self.vg**2)/self.coriolis
+        lmax=min(0.00027*np.sqrt(self.ug**2+self.vg**2)/abs(self.coriolis),100)
         invLshear=1.0/lturb**2+1.0/lmax**2
         lshear=np.sqrt(1.0/invLshear)
         stratification=9.81*1/(self.dz*self.t_ref)*(self.temperature[i]-self.temperature[i-1])
@@ -508,11 +394,6 @@ class amr1dSolver:
             if(Rib[i]>Ric):
                 zi=self.z[i]
                 break
-        # print("Summary")
-        # print("Monin-Obukhov Length:",self.mo_length)
-        # print("Richardson Boundary Layer Height:",zi)
-        # print("Friction Velocity:",self.ustar)
-        # print("Sensible Heat Flux:",self.Qh)
 
     def compute_average(self):
         self.umean+=self.ux
@@ -602,112 +483,3 @@ class amr1dSolver:
         plt.close('all')   
 
 
-# # Modify this function 
-# def generate_profile(allowed_error,metMastHeight,metMastWind,npts,zheight,roughness_length,terrain_ht, \
-#                  coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
-#                     initial_ug,initial_vg,include_ti=False):
-#     # Generate Geostrphic Wind for Terrain Height  Consistent Wind Speed 
-#     # Initial Guess of Geostropic Wind 
-#     # Coarse grid run to identify close wind speed 
-#     # A good initial guess reduces number of while loop iterations 
-#     residualx=100
-#     residualy=100 
-#     # Initialize Grid Npts, Height, Roughness Length and Terrain Height for IB 
-#     amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht)
-#     ug=[initial_ug,initial_vg]
-#     import time
-#     while (residualx>allowed_error or residualy>allowed_error):
-#         # Initialize Phyiscs: ux,uy,T,tke, ustar, pblh (can leave tke ustar and pblh to default value)
-#         amr1D.initialize_physics(ug[0],ug[1],300,0.4,0.4,100)
-#         # Coriolis 
-#         amr1D.initialize_coriolis(coriolis)
-#         # Temperature profile inversion height, width of strong inversion rate, strong inversion strength 
-#         # and lapse rate (can leave at default)
-#         amr1D.temperature_inversion(inv_height,inv_width,inv_strength,lapse_rate)
-#         # Heat Flux model: 1 - Heat flux specified ; 2 - Surface temperature specified 
-#         # 3 - Heating or cooling rate specified ; 4 - Monin Obukhov length specified 
-#         amr1D.heat_flux_model(heat_flux_mode,mol_length)
-#         # Simulation Iteration, Convergence Tolerance 
-#         amr1D.run_simulation(num_of_steps,tolerance)
-#         # Error calculation 
-#         # Wind speed at the metMast 
-#         z=amr1D.z
-#         ux=amr1D.ux
-#         uy=amr1D.uy
-#         met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
-#         met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
-#         print("Met Mast Wind:[%g %g]"%(metMastWind[0],metMastWind[1]))
-#         print("Specified Geostrophic Wind: [%g %g]"%(ug[0],ug[1]))
-#         print("CFD Met Mast Wind and Error:[%g %g]  [%g %g]"%(met_mast_cfd_ux,met_mast_cfd_uy,met_mast_cfd_ux-metMastWind[0],met_mast_cfd_uy-metMastWind[1]))
-#         tke=np.interp(metMastHeight,z,amr1D.tke)
-#         M=np.sqrt(met_mast_cfd_ux**2+met_mast_cfd_uy**2)
-#         print("TI:",np.sqrt(2.0/3.0*tke)/M*100)
-#         residualx=abs(met_mast_cfd_ux-metMastWind[0])
-#         residualy=abs(met_mast_cfd_uy-metMastWind[1])
-#         # Reduce only the higher error to  speed-up 
-#         if(residualx<allowed_error and residualy<allowed_error):
-#             print("Coarse grid converged")
-#             pass
-#         elif(residualx>residualy):
-#             if(metMastWind[0]>0):
-#                 if(met_mast_cfd_ux>metMastWind[0]):
-#                     ug[0]=ug[0]-max(0.5*residualx,allowed_error)
-#                 else:
-#                     ug[0]=ug[0]+max(0.5*residualx,allowed_error)
-#             else:
-#                 if(met_mast_cfd_ux<metMastWind[0]):
-#                     ug[0]=ug[0]+max(0.5*residualx,allowed_error)
-#                 else:
-#                     ug[0]=ug[0]-max(0.5*residualx,allowed_error)
-#         else:
-#             if(metMastWind[1]>0):
-#                 if(met_mast_cfd_uy>metMastWind[1]):
-#                     ug[1]=ug[1]-max(0.5*residualy,allowed_error)
-#                 else:
-#                     ug[1]=ug[1]+max(0.5*residualy,allowed_error)
-#             else:
-#                 if(met_mast_cfd_uy<metMastWind[1]):
-#                     ug[1]=ug[1]+max(0.5*residualy,allowed_error)
-#                 else:
-#                     ug[1]=ug[1]-max(0.5*residualy,allowed_error)
-#         end = time.time()
-#         print("Time taken :",end - start)
-#     z0=roughness_length
-#     return ug[0],ug[1],z0
-
-# # Coarse search
-# start=time.time()
-# MOL=[500]
-# for i in range(0,len(MOL)):
-#     print("Case:",MOL[i])
-#     allowed_error=0.25
-#     metMastHeight=150
-#     metMastWind=[10,-4]
-#     if(MOL[i]<0):
-#         zheight=2000
-#         npts=201
-#         num_of_steps=100000
-#         tolerance=1e-3
-#     else:
-#         num_of_steps=50000
-#         tolerance=1e-3
-#         zheight=1000
-#         npts=101
-#     roughness_length=0.1
-#     terrain_ht=0
-#     coriolis=45
-#     inv_height=0
-#     inv_width=0
-#     inv_strength=0
-#     lapse_rate=0.01
-#     heat_flux_mode=4
-#     mol_length=MOL[i]
-#     if(i==0):
-#         initial_ug=10
-#         initial_vg=-12
-#         include_ti=False
-#         initial_ug,initial_vg,z0=generate_profile(allowed_error,metMastHeight,metMastWind,npts,zheight,roughness_length,terrain_ht, \
-#                         coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
-#                             initial_ug,initial_vg,include_ti)
-#         end = time.time()
-#         print("Coarse grid completed:",end-start)
