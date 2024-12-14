@@ -50,7 +50,7 @@ metMastY: [0,0,0]
 metMastRadius: [500,500,500]
 metMastRefinementLevel: [0,0,0]
 metMastLineSampling: true 
-metMastWind: [-8.0,4.0]
+metMastWind: [12.0,2.0]
 metMastHeight: 100
 molLength: 1e10
 allowedError: 0.5
