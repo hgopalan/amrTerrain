@@ -474,9 +474,9 @@ class amrBackend():
 
     def createAMRSourceTerm(self,target,sponge=-1,terrain=-1,turbine=-1):
         target.write("# Source\n")
-        if(terrain==1 or turbine==1 or (sponge==1 and self.turbulence_model=="RANS")):
+        if(sponge==1 and self.turbulence_model=="RANS")):
             forcingterms="WindSpongeForcing ABLMeanBoussinesq BoussinesqBuoyancy  "
-        else:
+        elif(terrain==1 or turbine==1):
             forcingterms="ABLMeanBoussinesq BoussinesqBuoyancy RayleighDamping "
         try: 
             self.includeCoriolis=self.yamlFile["includeCoriolis"]
