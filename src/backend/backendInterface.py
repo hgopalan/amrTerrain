@@ -915,81 +915,6 @@ class amrBackend():
         #     height80File.write("%g %g %g \n"%(self.smoothTerrainX1[i],self.smoothTerrainX2[i],self.smoothTerrainX3[i]+80))
         # height80File.close()
 
-    def metMastRefinement(self,target):
-        # Read Met Mast 
-        try:
-            latList=self.yamlFile['metMastLat']
-        except:
-            return 
-        lonList=self.yamlFile['metMastLon']
-        metMastHeight=self.yamlFile['metMastHeight']
-        print(latList,len(latList))
-        xref=[]
-        yref=[]
-        zlower=[]
-        zmast=[]
-        for i in range(0,len(latList)):
-            if(i==0):
-                target.write("tagging.labels = metMastGrid1%g metMastGrid2%g metMastGrid3%g "%(i+1,i+1,i+1))
-            else:
-                target.write(" metMastGrid1%g metMastGrid2%g metMastGrid3%g "%(i+1,i+1,i+1))
-            xtemp,ytemp=self.srtm.to_xy(latList[i],lonList[i])
-            print(xtemp,ytemp)
-            xref.append(xtemp-self.xref)
-            yref.append(ytemp-self.yref)
-            zmast.append(metMastHeight[i]-self.zRef)
-        target.write("\n")
-        print(xref,self.xref)
-        print(yref,self.yref)
-        # Now Write Refinemements 
-        import pyvista as pv
-        for i in range(0,len(latList)):
-            xstart=xref[i]-4000
-            ystart=yref[i]-4000
-            zstart=self.interp(xref[i],yref[i])
-            zdist=zmast[i]-zstart
-            print(zmast[i],zstart,zdist,self.zRef)
-            target.write("tagging.metMastGrid1%g.type \t\t\t = GeometryRefinement\n"%(i+1))
-            target.write("tagging.metMastGrid1%g.shapes \t\t\t = metMast%g\n"%(i+1,i+1))
-            target.write("tagging.metMastGrid1%g.level \t\t\t = 0\n"%(i+1))
-            target.write("tagging.metMastGrid1%g.metMastGrid1%g.type \t\t\t = box\n"%(i+1,i+1))
-            target.write("tagging.metMastGrid1%g.metMastGrid1%g.origin = %g %g %g \n"%(i+1,i+1,xstart,ystart,zstart-64))
-            target.write("tagging.metMastGrid1%g.metMastGrid1%g.xaxis =  %g %g %g\n"%(i+1,i+1,8000,0,0))
-            target.write("tagging.metMastGrid1%g.metMastGrid1%g.yaxis =  %g %g %g\n"%(i+1,i+1,0,8000,0))
-            target.write("tagging.metMastGrid1%g.metMastGrid1%g.zaxis = %g %g %g\n"%(i+1,i+1,0,0,zdist+400))
-            xstart=xref[i]-2000
-            ystart=yref[i]-2000
-            target.write("tagging.metMastGrid2%g.type \t\t\t = GeometryRefinement\n"%(i+1))
-            target.write("tagging.metMastGrid2%g.shapes \t\t\t = metMastGrid2%g\n"%(i+1,i+1))
-            target.write("tagging.metMastGrid2%g.min_level \t\t\t = 0\n"%(i+1))
-            target.write("tagging.metMastGrid2%g.max_level \t\t\t = 1\n"%(i+1))
-            target.write("tagging.metMastGrid2%g.metMastGrid2%g.type \t\t\t = box\n"%(i+1,i+1))
-            target.write("tagging.metMastGrid2%g.metMastGrid2%g.origin = %g %g %g \n"%(i+1,i+1,xstart,ystart,zstart-32))
-            target.write("tagging.metMastGrid2%g.metMastGrid2%g.xaxis =  %g %g %g\n"%(i+1,i+1,4000,0,0))
-            target.write("tagging.metMastGrid2%g.metMastGrid2%g.yaxis =  %g %g %g\n"%(i+1,i+1,0,4000,0))
-            target.write("tagging.metMastGrid2%g.metMastGrid2%g.zaxis = %g %g %g\n"%(i+1,i+1,0,0,zdist+200))
-            xstart=xref[i]-1000
-            ystart=yref[i]-1000
-            target.write("tagging.metMastGrid3%g.type \t\t\t = GeometryRefinement\n"%(i+1))
-            target.write("tagging.metMastGrid3%g.shapes \t\t\t = metMastGrid3%g\n"%(i+1,i+1))
-            target.write("tagging.metMastGrid3%g.min_level \t\t\t = 0\n"%(i+1))
-            target.write("tagging.metMastGrid3%g.max_level \t\t\t = 2\n"%(i+1))
-            target.write("tagging.metMastGrid3%g.metMastGrid3%g.type \t\t\t = box\n"%(i+1,i+1))
-            target.write("tagging.metMastGrid3%g.metMastGrid3%g.origin = %g %g %g \n"%(i+1,i+1,xstart,ystart,zstart-16))
-            target.write("tagging.metMastGrid3%g.metMastGrid3%g.xaxis =  %g %g %g\n"%(i+1,i+1,2000,0,0))
-            target.write("tagging.metMastGrid3%g.metMastGrid3%g.yaxis =  %g %g %g\n"%(i+1,i+1,0,2000,0))
-            target.write("tagging.metMastGrid3%g.metMastGrid3%g.zaxis = %g %g %g\n"%(i+1,i+1,0,0,zdist+100))
-            # Write Boxes 
-            mesh1=pv.Box(bounds=(xref[i]-4000,xref[i]+4000,yref[i]-4000,yref[i]+4000,zstart-64,zstart+zdist+400))
-            fileName=Path(self.caseParent,self.caseName,"metMastGrid1"+str(i+1)+".vtk").as_posix()
-            mesh1.save(fileName)
-            mesh1=pv.Box(bounds=(xref[i]-2000,xref[i]+2000,yref[i]-2000,yref[i]+2000,zstart-32,zstart+zdist+200))
-            fileName=Path(self.caseParent,self.caseName,"metMastGrid2"+str(i+1)+".vtk").as_posix()
-            mesh1.save(fileName)
-            mesh1=pv.Box(bounds=(xref[i]-1000,xref[i]+1000,yref[i]-1000,yref[i]+1000,zstart-16,zstart+zdist+100))
-            fileName=Path(self.caseParent,self.caseName,"metMastGrid2"+str(i+1)+".vtk").as_posix()
-            mesh1.save(fileName)
-
     def writeRefinementRegions(self,target):
         try: 
             refinementRegions=self.yamlFile["refinementRegions"]
@@ -1042,9 +967,18 @@ class amrBackend():
             refinementLatLon=False 
         if(refinementLatLon):
             warnings.warn("Currently not implemented")
+        # Field refinement 
+        try:
+            fieldRefinement=self.yamlFile['refineTerrain']
+        except:
+            fieldRefinement=False
+        else:
+            fieldRefinement=True
         target.write("# tagging\n")
         for i in range(len(refinementRegions)):
-            if(i==0):
+            if(fieldRefinement):
+                target.write("%-50s = f1 %s "%("tagging.labels",refinementRegions[i]))
+            elif(i==0):
                 target.write("%-50s = %s "%("tagging.labels",refinementRegions[i]))
             else:
                 target.write(" %s "%(refinementRegions[i]))
@@ -1054,6 +988,10 @@ class amrBackend():
             else:
                 target.write(" %s "%(metMastRegions[i]))           
         target.write("\n")
+        if(fieldRefinement):
+            target.write("%-50s = FieldRefinement\n"%("tagging.f1.type"))
+            target.write("-%50s = terrain_blank"%("tagging.f1.field_name"))
+            target.write("%-50s = 0.1 0.1 0.1 0.1 0.1 0.1"%("tagging.f1.grad_error"))
         for i in range(0,len(refinementRegions)):
             taggingstring="tagging."+refinementRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))

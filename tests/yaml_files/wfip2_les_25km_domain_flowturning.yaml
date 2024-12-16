@@ -31,6 +31,7 @@ refTemperature: 300.0
 refRoughness: 0.1
 refHeatflux: 0.0 
 turbineMarkType: "database"
+includeCoriolis: true
 writeTerrain: true
 rans1D: true
 writeTerrainSampling: true 
