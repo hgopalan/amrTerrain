@@ -31,10 +31,13 @@ class amrBackend():
         caseDir=Path(self.caseParent,self.caseName)
         self.caseDir=caseDir.as_posix()
         caseDir.mkdir(parents=True,exist_ok=True)
-        casePrecursor=Path(self.caseParent,self.caseName,"precursor")
-        self.casePrecursor=casePrecursor.as_posix()
-        casePrecursor.mkdir(parents=True,exist_ok=True)
-        if(self.caseType=="terrain"):
+        if(self.caseType=="terrain_noprecursor"):
+            pass
+        else:
+            casePrecursor=Path(self.caseParent,self.caseName,"precursor")
+            self.casePrecursor=casePrecursor.as_posix()
+            casePrecursor.mkdir(parents=True,exist_ok=True)
+        if(self.caseType=="terrain" or self.caseType=="terrain_noprecursor"):
             caseTerrain=Path(self.caseParent,self.caseName,"terrain")
             self.caseTerrain=caseTerrain.as_posix()
             caseTerrain.mkdir(parents=True,exist_ok=True)
@@ -166,10 +169,13 @@ class amrBackend():
 
     
     def createAMRFiles(self):
-        self.amrPrecursorFile=Path(self.caseParent,self.caseName,"precursor","precursor.inp").open("w")
-        self.amrPrecursorFile.write("# Generating the precursor file\n")
+        if(self.caseType=="terrain_noprecursor"):
+            pass
+        else:
+            self.amrPrecursorFile=Path(self.caseParent,self.caseName,"precursor","precursor.inp").open("w")
+            self.amrPrecursorFile.write("# Generating the precursor file\n")
         self.createPrecursorFiles()
-        if(self.caseType=='terrain'):
+        if(self.caseType=='terrain' or self.caseType=="terrain_noprecursor"):
             self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrain","terrain.inp").open("w")
             self.amrTerrainFile.write("# Generating the terrain file\n")
             self.createTerrainFiles("terrain")
@@ -184,16 +190,18 @@ class amrBackend():
             self.plotTurbines()
 
     def createPrecursorFiles(self):
+        # Adding some patching 
+        self.refTemperature=self.yamlFile["refTemperature"]
+        self.refRoughness=self.yamlFile["refRoughness"]
+        self.refHeatFlux=self.yamlFile["refHeatflux"] 
+        if(self.caseType=="terrain_noprecursor"):
+            return 
+        if(self.rans_1d):
+            self.createAMR1dSolver()
         print("Creating precursor")
         self.createAMRGeometry(self.amrPrecursorFile,1)
         self.createAMRGrid(self.amrPrecursorFile)
         self.createAMRTime(self.amrPrecursorFile)
-        # Adding some patching 
-        self.refTemperature=self.yamlFile["refTemperature"]
-        self.refRoughness=self.yamlFile["refRoughness"]
-        self.refHeatFlux=self.yamlFile["refHeatflux"]        
-        if(self.rans_1d):
-            self.createAMR1dSolver()
         self.createSolverInfo(self.amrPrecursorFile)
         self.createAMRTransport(self.amrPrecursorFile)
         self.createAMRTurbulence(self.amrPrecursorFile)
@@ -209,6 +217,8 @@ class amrBackend():
     def createTerrainFiles(self,folder):
         print("Creating Terrain Files")
         self.createAMRGeometry(self.amrTerrainFile,-1)
+        if(self.rans_1d and self.caseType=="terrain_noprecursor"):
+            self.createAMR1dSolver()
         self.createAMRGrid(self.amrTerrainFile)
         self.createAMRTime(self.amrTerrainFile,1)
         if(self.caseType=='terrainTurbine'):
@@ -227,7 +237,10 @@ class amrBackend():
         self.writeTerrainData(folder)
         self.writeRestart(self.amrTerrainFile)
         self.fillrans1dinfo(self.amrTerrainFile,1)
-        self.createAMRPrecursorSampling(self.amrPrecursorFile)
+        if(self.caseType=="terrain_noprecursor"):
+            pass
+        else:
+            self.createAMRPrecursorSampling(self.amrPrecursorFile)
         # Creating refinement regions 
         self.writeRefinementRegions(self.amrTerrainFile)
         self.writeAccelerationMaps(self.amrTerrainFile)
@@ -315,8 +328,11 @@ class amrBackend():
         else:
             target.write("%-50s = %g\n"%("time.stop_time",self.case_end_time))
         target.write("%-50s = 1.0\n"%("time.initial_dt"))
-        if(target==self.amrPrecursorFile):
-            target.write("%-50s = 1\n"%("time.fixed_dt"))
+        try: 
+            if(target==self.amrPrecursorFile):
+                target.write("%-50s = 1\n"%("time.fixed_dt"))
+        except:
+            target.write("%-50s = -1\n"%("time.fixed_dt"))
         else:
             target.write("%-50s = -1\n"%("time.fixed_dt"))
         if(self.turbulence_model=="RANS"):
@@ -474,16 +490,17 @@ class amrBackend():
 
     def createAMRSourceTerm(self,target,sponge=-1,terrain=-1,turbine=-1):
         target.write("# Source\n")
-        if(sponge==1 and self.turbulence_model=="RANS")):
+        if((sponge==1 and self.turbulence_model=="RANS") or (self.caseType=="terrain_noprecursor")):
             forcingterms="WindSpongeForcing ABLMeanBoussinesq BoussinesqBuoyancy  "
-        elif(terrain==1 or turbine==1):
+        else:
             forcingterms="ABLMeanBoussinesq BoussinesqBuoyancy RayleighDamping "
         try: 
             self.includeCoriolis=self.yamlFile["includeCoriolis"]
         except:
-            pass
-        else:
             forcingterms=forcingterms+" CoriolisForcing "
+        else:
+            if(self.includeCoriolis):
+                forcingterms=forcingterms+" CoriolisForcing "
         try:
             self.forcingHeight=self.yamlFile["forcingHeight"]
         except:
@@ -503,10 +520,20 @@ class amrBackend():
             target.write("%-50s = %g \n"%("ABLForcing.abl_forcing_height",self.forcingHeight))
         if(terrain==1 or turbine==1):
             target.write('%-50s = "terrain.amrwind.new" \n'%("TerrainDrag.terrain_file"))
-            if(self.turbulence_model=="RANS" and sponge==1):
+            if((self.turbulence_model=="RANS" and sponge==1) or (self.caseType=="terrain_noprecursor")):
                 target.write("%-50s = TempSpongeForcing  DragTempForcing\n"%("Temperature.source_terms"))
             else:
                 target.write("%-50s = DragTempForcing\n"%("Temperature.source_terms"))
+        if(self.caseType=="terrain_noprecursor"):
+            target.write("%-50s = 1\n"%("DragForcing.sponge_west"))
+            target.write("%-50s = 1\n"%("DragForcing.sponge_east"))
+            target.write("%-50s = 1\n"%("DragForcing.sponge_north"))
+            target.write("%-50s = 1\n"%("DragForcing.sponge_south"))
+        else:
+            target.write("%-50s = 0\n"%("DragForcing.sponge_west"))
+            target.write("%-50s = 0\n"%("DragForcing.sponge_east"))
+            target.write("%-50s = 0\n"%("DragForcing.sponge_north"))
+            target.write("%-50s = 0\n"%("DragForcing.sponge_south"))
         target.write("%-50s = 0 0 1\n"%("RayleighDamping.force_coord_directions"))
         target.write("%-50s = %g\n"%("BoussinesqBuoyancy.reference_temperature",self.refTemperature))
         target.write("%-50s = %g\n"%("BoussinesqBuoyancy.thermal_expansion_coeff",1.0/self.refTemperature))
@@ -524,13 +551,16 @@ class amrBackend():
     def createAMRBC(self,target,inflowOutflow=-1):
         target.write("# BC \n")
         boundaries=["xlo","xhi","ylo","yhi"]
-        if(inflowOutflow==1):
+        if(inflowOutflow==1 and (not self.caseType=="terrain_noprecursor")):
             for boundary in boundaries:
                 target.write('%-50s = "mass_inflow_outflow"\n'%(boundary+".type "))
                 target.write("%-50s = 1.225\n"%(boundary+".density"))
                 target.write("%-50s = 300\n"%(boundary+".temperature"))
                 if(self.turbulence_model=="RANS"):
                     target.write("%-50s = 0.1 \n"%(boundary+".tke"))
+        if(self.caseType=="terrain_noprecursor"):
+            for boundary in boundaries:
+                target.write('%-50s = "pressure_outflow"\n'%(boundary+".type "))
         #if(inflowOutflow==1):
             # if(self.caseWindspeedX>=0):
             #     target.write('%-50s = "mass_inflow"\n'%("xlo.type "))
@@ -640,66 +670,83 @@ class amrBackend():
         #     initial_vg= 11.25*ustar  
         # print(ustar,initial_ug,initial_vg)
         # 
-        M=np.sqrt(wind[0]**2+wind[1]**2)
-        wt=4e-3*M
-        zi=1000.0
-        f=2*7.27e-5*np.sin(self.caseCenterLat*np.pi/180)
-        print(wt/(f*zi))
-        if(self.caseCenterLat<10):
-            initial_ug=wind[0]
-            initial_vg=wind[1]
-        else:
-            initial_ug=wind[0]+wt/(f*zi)*wind[1]
-            initial_vg=wind[1]-wt/(f*zi)*wind[0]
+        try:
+            initial_ug=self.yamlFile["initialUG"]
+            initial_vg=self.yamlFile["initialVG"]
+        except:
+            M=np.sqrt(wind[0]**2+wind[1]**2)
+            wt=4e-3*M
+            zi=1000.0
+            f=2*7.27e-5*np.sin(self.caseCenterLat*np.pi/180)
+            print(wt/(f*zi))
+            if(self.caseCenterLat<10):
+                initial_ug=wind[0]
+                initial_vg=wind[1]
+            else:
+                initial_ug=wind[0]+wt/(f*zi)*wind[1]
+                initial_vg=wind[1]-wt/(f*zi)*wind[0]
         print(initial_ug,initial_vg)
         include_ti=False
         initial_ug,initial_vg,z0=self.generate_profile(allowed_error,self.metMastHeight,self.metMastWind,npts,zheight,roughness_length,terrain_ht, \
                         coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
                             initial_ug,initial_vg,include_ti)
-        self.fillrans1dinfo(self.amrPrecursorFile)
+        try:
+            self.fillrans1dinfo(self.amrPrecursorFile)
+        except:
+            self.fillrans1dinfo(' ')
         self.geostropicX=initial_ug
         self.geostropicY=initial_vg
 
     def fillrans1dinfo(self,target,sponge=-1):
-        stringtowrite="ABL.initial_wind_profile"
-        target.write("%-50s = true\n"%(stringtowrite))
-        stringtowrite="ABL.rans_1dprofile_file"
-        target.write('%-50s = "rans_1d.info" \n'%(stringtowrite))
-        zstart=2000.0
-        if(self.turbulence_model=="RANS"):
-            stringtowrite="ABL.meso_sponge_start "
-            target.write('%-50s = %g \n'%(stringtowrite,zstart))
+        if(target==' '):
+            pass
         else:
-            stringtowrite="ABL.meso_sponge_start "
-            target.write('%-50s = %g \n'%(stringtowrite,zstart))
+            stringtowrite="ABL.initial_wind_profile"
+            target.write("%-50s = true\n"%(stringtowrite))
+            stringtowrite="ABL.rans_1dprofile_file"
+            target.write('%-50s = "rans_1d.info" \n'%(stringtowrite))
+            zstart=2000.0
+            if(self.turbulence_model=="RANS"):
+                stringtowrite="ABL.meso_sponge_start "
+                target.write('%-50s = %g \n'%(stringtowrite,zstart))
+            else:
+                stringtowrite="ABL.meso_sponge_start "
+                target.write('%-50s = %g \n'%(stringtowrite,zstart))
 
         # Write for AMR-Wind 
-        data=np.genfromtxt(Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix())
+        data=np.genfromtxt(Path(self.caseParent,self.caseName,"1dSolverOutput.info").as_posix())
         zvals=data[:,0]
         uvals=data[:,1]
         vvals=data[:,2]
         wvals=data[:,3]
         tempvals=data[:,4]
         tkevals=data[:,5]
-        for i in range(0,len(zvals)):
-            if(i==0):
-                stringtowrite="ABL.temperature_heights"
-                target.write("%-50s = %g"%(stringtowrite,zvals[i]))
-            else:
-                target.write("  %g "%(zvals[i]))
-        target.write(" %g \n"%(self.maxZ))
-        for i in range(0,len(zvals)):
-            if(i==0):
-                stringtowrite="ABL.temperature_values"
-                target.write("%-50s = %g"%(stringtowrite,tempvals[i]))
-            else:
-                target.write("  %g "%(tempvals[i]))
-        target.write(" %g \n"%(tempvals[i]))
-        newtarget=open(Path(self.caseParent,self.caseName,"precursor","rans_1d.info").as_posix(),"w")
-        for i in range(0,len(zvals)):
-            newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-        newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
-        newtarget.close()
+        if(target==' '):
+            pass
+        else:
+            for i in range(0,len(zvals)):
+                if(i==0):
+                    stringtowrite="ABL.temperature_heights"
+                    target.write("%-50s = %g"%(stringtowrite,zvals[i]))
+                else:
+                    target.write("  %g "%(zvals[i]))
+            target.write(" %g \n"%(self.maxZ))
+            for i in range(0,len(zvals)):
+                if(i==0):
+                    stringtowrite="ABL.temperature_values"
+                    target.write("%-50s = %g"%(stringtowrite,tempvals[i]))
+                else:
+                    target.write("  %g "%(tempvals[i]))
+            target.write(" %g \n"%(tempvals[i]))
+        try:
+            newtarget=open(Path(self.caseParent,self.caseName,"precursor","rans_1d.info").as_posix(),"w")
+        except:
+            pass
+        else:
+            for i in range(0,len(zvals)):
+                newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+            newtarget.close()
         try:
             newtarget=open(Path(self.caseParent,self.caseName,"terrain","rans_1d.info").as_posix(),"w")
         except:
@@ -731,10 +778,10 @@ class amrBackend():
         residualy=100 
         # Initialize Grid Npts, Height, Roughness Length and Terrain Height for IB 
         from amr1DSolver import amr1dSolver
-        pathToWrite=Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix()
+        pathToWrite=Path(self.caseParent,self.caseName,"1dSolverOutput.info").as_posix()
         # Coarse Run 
         zheight=2048
-        dz=16.0
+        dz=32.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
         ug=[initial_ug,initial_vg]
@@ -814,13 +861,13 @@ class amrBackend():
         residualx=100
         residualy=100 
         # Initialize Grid Npts, Height, Roughness Length and Terrain Height for IB 
-        pathToWrite=Path(self.caseParent,self.caseName,"precursor","1dSolverOutput.info").as_posix()
+        pathToWrite=Path(self.caseParent,self.caseName,"1dSolverOutput.info").as_posix()
         ux,uy=amr1D.return_windspeed()
         # Need to interpolate 
         # Coarse Run 
         start=time.time()
         zheight=2048
-        dz=8.0
+        dz=16.0
         npts=int(zheight/dz)
         znew=np.linspace(0,zheight,npts)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
@@ -976,22 +1023,22 @@ class amrBackend():
             fieldRefinement=True
         target.write("# tagging\n")
         for i in range(len(refinementRegions)):
-            if(fieldRefinement):
+            if(fieldRefinement and i==0):
                 target.write("%-50s = f1 %s "%("tagging.labels",refinementRegions[i]))
             elif(i==0):
                 target.write("%-50s = %s "%("tagging.labels",refinementRegions[i]))
             else:
                 target.write(" %s "%(refinementRegions[i]))
         for i in range(len(metMastRegions)):
-            if(len(refinementRegions)==0):
+            if(len(refinementRegions)==0 and fieldRefinement==False):
                 target.write("%-50s = %s "%("tagging.labels",metMastRegions[i]))
             else:
                 target.write(" %s "%(metMastRegions[i]))           
         target.write("\n")
         if(fieldRefinement):
             target.write("%-50s = FieldRefinement\n"%("tagging.f1.type"))
-            target.write("-%50s = terrain_blank"%("tagging.f1.field_name"))
-            target.write("%-50s = 0.1 0.1 0.1 0.1 0.1 0.1"%("tagging.f1.grad_error"))
+            target.write("%-50s = terrain_blank\n"%("tagging.f1.field_name"))
+            target.write("%-50s = 0.1 0.1 0.1 0.1 0.1 0.1\n"%("tagging.f1.grad_error"))
         for i in range(0,len(refinementRegions)):
             taggingstring="tagging."+refinementRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))
@@ -1072,9 +1119,20 @@ class amrBackend():
                 level=max(level,2)
             else:
                 level=max(level,max(metMastRefinementLevel))
+        try:
+            fieldRefinement=self.yamlFile['refineTerrain']
+        except:
+            fieldRefinement=False
+        else:
+            fieldRefinement=True
+        if(fieldRefinement):
+            level=max(level,1)
         stringtowrite="amr.max_level "
         target.write("%-50s = %d\n"%(stringtowrite,level))
-        self.amrPrecursorFile.write("%-50s = %d\n"%(stringtowrite,0))
+        if(self.caseType=="terrain_noprecursor"):
+            pass
+        else:
+            self.amrPrecursorFile.write("%-50s = %d\n"%(stringtowrite,0))
 
 
 
@@ -1140,7 +1198,10 @@ class amrBackend():
 
 
     def closeAMRFiles(self):
-        self.amrPrecursorFile.close()
+        try:
+            self.amrPrecursorFile.close()
+        except: 
+            pass 
         try:
             self.amrTerrainFile.close()
         except:
@@ -1293,11 +1354,14 @@ class amrBackend():
 
 
     def writeRestart(self,target):
-            target.write("#io \n")
-            if(not self.turbulence_model=="RANS"):
-                target.write('%-50s = "../precursor/chk03600"\n'%("io.restart_file"))
+            if(self.caseType=="terrain_noprecursor"):
+                pass
             else:
-                target.write('%-50s = "../precursor/chk01200"\n'%("io.restart_file"))
+                target.write("#io \n")
+                if(not self.turbulence_model=="RANS"):
+                    target.write('%-50s = "../precursor/chk03600"\n'%("io.restart_file"))
+                else:
+                    target.write('%-50s = "../precursor/chk01200"\n'%("io.restart_file"))
 
     def createTurbineFiles(self):
         print("Creating Turbines")

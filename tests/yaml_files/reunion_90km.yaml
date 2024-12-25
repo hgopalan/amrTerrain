@@ -1,7 +1,7 @@
 solver: "amrWind"
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "reunion_90km_les_domain"
-caseType: "terrain"
+caseFolder: "reunion_90km_les_domain_noprecursor"
+caseType: "terrain_noprecursor"
 caseInitial: "amr"
 domainType: "center"
 centerLat: -21.1
@@ -30,7 +30,6 @@ refTemperature: 300.0
 refRoughness: 0.1
 refHeatflux: 0.0 
 turbineMarkType: "database"
-includeCoriolis: true
 writeTerrain: true
 rans1D: true
 writeTerrainSampling: true 
@@ -55,5 +54,7 @@ metMastHeight: 100
 molLength: 1e10
 allowedError: 0.1
 refineTerrain: true 
+initialUG: 17.9286
+initialVG: 13.9762
 # Comment out the line below and change path to use user-specified tiff file 
 useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/tiffiles/reunion/output_SRTMGL1.tif"
