@@ -478,7 +478,7 @@ class amrBackend():
             else:
                 target.write("%-50s = velocity temperature\n"%("ABL.bndry_var_names"))
             target.write("%-50s = native\n"%("ABL.bndry_output_format"))
-        elif(iomode==1):
+        elif(iomode==1 and (not self.caseType=="terrain_noprecursor")):
             target.write('%-50s = "../precursor/bndry_files"\n'%("ABL.bndry_file"))
             target.write("%-50s = 1\n"%("ABL.bndry_io_mode"))
             if(self.turbulence_model=="RANS"):
@@ -529,6 +529,11 @@ class amrBackend():
             target.write("%-50s = 1\n"%("DragForcing.sponge_east"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_north"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_south"))
+            target.write("%-50s = -2500\n"%("DragForcing.sponge_distance_west"))
+            target.write("%-50s = 2500\n"%("DragForcing.sponge_distance_east"))
+            target.write("%-50s = -2500\n"%("DragForcing.sponge_distance_south"))
+            target.write("%-50s = 2500\n"%("DragForcing.sponge_distance_north"))
+
         else:
             target.write("%-50s = 0\n"%("DragForcing.sponge_west"))
             target.write("%-50s = 0\n"%("DragForcing.sponge_east"))
