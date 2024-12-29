@@ -51,7 +51,10 @@ class amrBackend():
         self.caseWest=self.yamlFile['west']
         self.caseCenterLat=self.yamlFile["centerLat"]
         self.caseCenterLon=self.yamlFile["centerLon"]
-        self.refHeight=self.yamlFile["refHeight"]
+        try:
+            self.refHeight=self.yamlFile["refHeight"]
+        except:
+            self.refHeight=2184
         # Reading optional variables 
         try:
             self.caseCellSize=self.yamlFile['cellSize']
@@ -293,20 +296,30 @@ class amrBackend():
         #target.write("%-50s = 0\n"%("amr.max_level"))
 
     def createAMRTime(self,target,blanking=-1):
-        if(self.turbulence_model=="RANS"):
-            if(blanking==1):
-                self.case_end_time=2400
+        if(self.caseType=="terrain_noprecursor"):
+            if(self.turbulence_model=="RANS"):
+                self.case_end_time=1800
+                self.plotOutput=600
+                self.restartOutput=-1
             else:
-                self.case_end_time=2405
-            self.plotOutput=600
-            self.restartOutput=600
-        else:
-            if(blanking==1):
                 self.case_end_time=7200
+                self.plotOutput=1800
+                self.restartOutput=-1
+        else:
+            if(self.turbulence_model=="RANS"):
+                if(blanking==1):
+                    self.case_end_time=2400
+                else:
+                    self.case_end_time=2405
+                self.plotOutput=600
+                self.restartOutput=600
             else:
-                self.case_end_time=7205
-            self.plotOutput=1800
-            self.restartOutput=1800
+                if(blanking==1):
+                    self.case_end_time=7200
+                else:
+                    self.case_end_time=7205
+                self.plotOutput=1800
+                self.restartOutput=1800
         try:
             self.timeMethod=self.yamlFile['timeMethod']
         except:
