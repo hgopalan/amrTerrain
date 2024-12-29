@@ -605,7 +605,7 @@ class amrBackend():
         if(self.caseverticalAR==3 or self.caseverticalAR==4):
             self.smoothing=8
         elif(self.caseverticalAR>4 and self.caseverticalAR<=8):
-            self.smoothing=16
+            self.smoothing=32
         elif(self.caseverticalAR>8 and self.caseverticalAR<=16):
             self.smoothing=64
         if(self.caseverticalAR>=3):
@@ -1044,6 +1044,14 @@ class amrBackend():
             target.write("%-50s = FieldRefinement\n"%("tagging.f1.type"))
             target.write("%-50s = terrain_blank\n"%("tagging.f1.field_name"))
             target.write("%-50s = 0.1 0.1 0.1 0.1 0.1 0.1\n"%("tagging.f1.grad_error"))
+            try:
+                box_lo=self.yamlFile["refineLow"]
+                box_hi=self.yamlFile["refineHigh"]
+            except: 
+                pass
+            else:
+                target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],box_lo[2]))
+                target.write("%-50s = %g %g %g \n"%("tagging.f1.box_hi",box_hi[0],box_hi[1],box_hi[2]))
         for i in range(0,len(refinementRegions)):
             taggingstring="tagging."+refinementRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))
