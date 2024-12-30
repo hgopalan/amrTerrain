@@ -2,7 +2,7 @@
 solver: "amrWind"
 # Directories
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "wfip2_50km_rans_domain_noprecursor"
+caseFolder: "wfip2_25km_les_noprecursor"
 # 4 Case types: precursor, terrain, terrain_noprecursor and turbine 
 caseType: "terrain_noprecursor"
 # Placeholders 
@@ -12,10 +12,10 @@ domainType: "center"
 centerLat: 45.63374
 centerLon: -120.66047
 # Distances measured in meters from center lat to chop the tiff file 
-west: 25000
-east: 25000
-south: 25000
-north: 25000
+west: 12500
+east: 12500
+south: 12500
+north: 12500
 # Smoothing from terrain to flat surface in meters 
 westSlope: 2500
 eastSlope: 2500
@@ -34,7 +34,7 @@ verticalAR: 4
 # Size to write the terrain file in m 
 terrainSize: 32
 # Turbulence Model: RANS/LES 
-turbulenceModel: "RANS"
+turbulenceModel: "LES"
 # Placeholder for initial wind if no met mast is specified 
 windX: 10.0
 windY: 0.0 

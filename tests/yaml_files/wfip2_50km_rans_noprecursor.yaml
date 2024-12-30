@@ -1,0 +1,91 @@
+# Solver type: Currently only amr-wind. May include ERF in future. 
+solver: "amrWind"
+# Directories
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
+caseFolder: "wfip2_50km_rans_noprecursor"
+# 4 Case types: precursor, terrain, terrain_noprecursor and turbine 
+caseType: "terrain_noprecursor"
+# Placeholders 
+caseInitial: "amr"
+domainType: "center"
+# Center point around which to generate terrain 
+centerLat: 45.63374
+centerLon: -120.66047
+# Distances measured in meters from center lat to chop the tiff file 
+west: 25000
+east: 25000
+south: 25000
+north: 25000
+# Smoothing from terrain to flat surface in meters 
+westSlope: 2500
+eastSlope: 2500
+northSlope: 2500 
+southSlope: 2500 
+# Span for the flat surface in meters 
+westFlat: 2500
+eastFlat: 2500
+northFlat: 2500 
+southFlat: 2500 
+# Meshing 
+# Horizontal cell size in meters 
+cellSize: 64
+# Vertical cell size is cellSize/verticalAR 
+verticalAR: 4
+# Size to write the terrain file in m 
+terrainSize: 32
+# Turbulence Model: RANS/LES 
+turbulenceModel: "RANS"
+# Placeholder for initial wind if no met mast is specified 
+windX: 10.0
+windY: 0.0 
+windZ: 0.0 
+# Physics values used for calculation 
+refTemperature: 300.0
+refRoughness: 0.1
+refHeatflux: 0.0 
+# Monin-Obukhov length required for RANS simulations 
+molLength: 1e10
+# If case type is turbine all turbines within US included 
+turbineMarkType: "database"
+# Writes a STL file of the terrain 
+writeTerrain: true
+# Runs the 1-D rans solver to create initialconditions 
+# Mandatory for terrain_noprecursor to avoid solver divergence 
+rans1D: true
+# Errors between met-mast wind and the 1-D solver computed 
+# met-mast height winds 
+allowedError: 0.05
+# Write terrain aligned sampling to compute speed-up maps 
+writeTerrainSampling: true 
+verticalLevels: [10,80,100,200]
+# Refinment Regions 
+refinementRegions: ["roi","outer"]
+refinementMinX: [-3000,-5000]
+refinementMaxX: [3000,5000]
+refinementMinY: [-3000,-5000]
+refinementMaxY: [3000,5000]
+refinementMinZ: [300,200]
+refinementMaxZ: [500,700]
+refinementLevels: [2,1]
+# Location of met-masts 
+metMastNames: ["mast1","mast2","mast3"]
+metMastLatLon: false 
+metMastX: [-500,0,500]
+metMastY: [0,0,0]
+metMastRadius: [500,500,500]
+metMastRefinementLevel: [0,0,0]
+metMastLineSampling: true 
+# Use one of the met-masts as driving wind 
+metMastWind: [9.0,5.0]
+metMastHeight: 100
+# Do adaptive mesh refinement for terrain
+# Maximum level of refinement is set to the maximum values 
+# from refinementLevels or metMastRefinementLevel 
+# Refinement level set to 1 if all refinements are turned off 
+refineTerrain: true
+# Restrict the AMR to the region of interest to reduce cell count 
+refineLow: [-3000,-3000,300]
+refineHigh: [3000,3000,600]
+# Comment out the line below and change path to use user-specified tiff file 
+#useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/output_SRTMGL1.tif"
+
