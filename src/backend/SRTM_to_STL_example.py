@@ -218,7 +218,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # check distance from west boundary
     blend_w = np.ones(xsurf.shape)
     if fringe_w > 0:
-        blend_w = np.minimum(np.maximum((xsurf-xmin-fringe_flat_w)/fringe_w, 0), 1)
+        blend_w = np.minimum(np.maximum((xsurf-xmin-fringe_flat_w-fringe_w)/fringe_w, 0), 1)
 
 
     # In[28]:
@@ -227,7 +227,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # check distance from east boundary
     blend_e = np.ones(xsurf.shape)
     if fringe_e > 0:
-        blend_e = np.minimum(np.maximum((xmax-xsurf-fringe_flat_e)/fringe_e, 0), 1)
+        blend_e = np.minimum(np.maximum((xmax-xsurf-fringe_flat_e-fringe_w)/fringe_e, 0), 1)
 
 
     # In[29]:
@@ -236,7 +236,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # check distance from south boundary
     blend_s = np.ones(xsurf.shape)
     if fringe_s > 0:
-        blend_s = np.minimum(np.maximum((ysurf-ymin-fringe_flat_s)/fringe_s, 0), 1)
+        blend_s = np.minimum(np.maximum((ysurf-ymin-fringe_flat_s-fringe_s)/fringe_s, 0), 1)
 
 
     # In[30]:
@@ -245,7 +245,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # check distance from north boundary
     blend_n = np.ones(xsurf.shape)
     if fringe_n > 0:
-        blend_n = np.minimum(np.maximum((ymax-ysurf-fringe_flat_n)/fringe_n, 0), 1)
+        blend_n = np.minimum(np.maximum((ymax-ysurf-fringe_flat_n-fringe_n)/fringe_n, 0), 1)
 
 
     # In[31]:
@@ -268,6 +268,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
         ax.axis('scaled')
         #plt.show()
 
+    #exit(-1)
 
     # In[33]:
 

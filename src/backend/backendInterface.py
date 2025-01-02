@@ -266,11 +266,11 @@ class amrBackend():
         else:
             self.terrainZMax=ranges[idx+1]
         # Add 1 km for ABL and 2 km for Rayleigh
-        self.ABLHeight=1024
+        self.ABLHeight=2048
         self.RDLHeight=2048
         if(self.terrainZMax>self.ABLHeight):
             print("Not enough blockage")
-            self.ABLHeight=2*self.ABLHeight
+            self.ABLHeight=max(2*self.terrainZMax,2*self.ABLHeight)
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
         print(self.maxZ)
         target.write("%-50s = %g %g %g \n"%("geometry.prob_lo",minX,minY,minZ))
@@ -471,6 +471,11 @@ class amrBackend():
             target.write("\n")
         target.write("%-50s = local\n"%("ABL.wall_shear_stress_type"))
         target.write("%-50s = %g\n"%("ABL.surface_temp_flux",self.refHeatFlux))
+        print("Trying to write",self.caseType)
+        if(self.caseType=="terrain_noprecursor"):
+            print("Trying to write",self.caseType)
+            target.write("%-50s = true\n"%("ABL.horizontal_sponge_temp"))
+            target.write("%-50s = true\n"%("ABL.horizontal_sponge_tke"))
         if(iomode==0):
             target.write('%-50s = "bndry_files"\n'%("ABL.bndry_file "))
             target.write("%-50s = 1\n"%("ABL.bndry_write_frequency"))
@@ -542,10 +547,10 @@ class amrBackend():
             target.write("%-50s = 1\n"%("DragForcing.sponge_east"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_north"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_south"))
-            target.write("%-50s = -2500\n"%("DragForcing.sponge_distance_west"))
-            target.write("%-50s = 2500\n"%("DragForcing.sponge_distance_east"))
-            target.write("%-50s = -2500\n"%("DragForcing.sponge_distance_south"))
-            target.write("%-50s = 2500\n"%("DragForcing.sponge_distance_north"))
+            target.write("%-50s = -%g\n"%("DragForcing.sponge_distance_west",self.caseWestFlat-500))
+            target.write("%-50s = %g\n"%("DragForcing.sponge_distance_east",self.caseEastFlat+500))
+            target.write("%-50s = -%g\n"%("DragForcing.sponge_distance_south",self.caseSouthFlat-500))
+            target.write("%-50s = %g\n"%("DragForcing.sponge_distance_north",self.caseNorthFlat+500))
 
         else:
             target.write("%-50s = 0\n"%("DragForcing.sponge_west"))
@@ -625,30 +630,30 @@ class amrBackend():
             target.write("%-50s = %g \n"%("mac_proj.num_pre_smooth",self.smoothing))
             target.write("%-50s = %g \n"%("mac_proj.num_post_smooth",self.smoothing))
         if(modify==1):
-            target.write("%-50s = 1.0e-3 \n"%("mac_proj.mg_rtol"))
-            target.write("%-50s = 1.0e-4 \n"%("mac_proj.mg_atol"))
+            target.write("%-50s = -1 \n"%("mac_proj.mg_rtol"))
+            target.write("%-50s = 1e-4 \n"%("mac_proj.mg_atol"))
         else:
-            target.write("%-50s = 1.0e-4 \n"%("mac_proj.mg_rtol"))
-            target.write("%-50s = 1.0e-6 \n"%("mac_proj.mg_atol"))
+            target.write("%-50s = -1 \n"%("mac_proj.mg_rtol"))
+            target.write("%-50s = 1e-4 \n"%("mac_proj.mg_atol"))
         target.write("%-50s = 25 \n"%("mac_proj.maxiter "))
         target.write("%-50s = 4\n"%("mac_proj.fmg_maxiter"))
         if(self.caseverticalAR>=3):
             target.write("%-50s = %g \n"%("nodal_proj.num_pre_smooth",self.smoothing))
             target.write("%-50s = %g \n"%("nodal_proj.num_post_smooth",self.smoothing))
         if(modify==1):
-            target.write("%-50s = 1.0e-3 \n"%("nodal_proj.mg_rtol"))
-            target.write("%-50s = 1.0e-4 \n"%("nodal_proj.mg_atol "))                
+            target.write("%-50s = -1 \n"%("nodal_proj.mg_rtol"))
+            target.write("%-50s = 1e-4 \n"%("nodal_proj.mg_atol "))                
         else:
-            target.write("%-50s = 1.0e-4 \n"%("nodal_proj.mg_rtol"))
-            target.write("%-50s = 1.0e-6 \n"%("nodal_proj.mg_atol"))
+            target.write("%-50s = -1 \n"%("nodal_proj.mg_rtol"))
+            target.write("%-50s = 1e-4 \n"%("nodal_proj.mg_atol"))
         target.write("%-50s = 25 \n"%("nodal_proj.maxiter"))  
         target.write("%-50s = 4\n"%("nodal_proj.fmg_maxiter")) 
-        target.write("%-50s = 1.0e-4 \n"%("diffusion.mg_rtol"))
-        target.write("%-50s = 1.0e-6 \n"%("diffusion.mg_atol "))
-        target.write("%-50s = 1.0e-5 \n"%("temperature_diffusion.mg_rtol"))
-        target.write("%-50s = 1.0e-6 \n"%("temperature_diffusion.mg_atol"))
-        target.write("%-50s = 1.0e-4 \n"%("tke_diffusion.mg_rtol"))
-        target.write("%-50s = 1.0e-6 \n"%("tke_diffusion.mg_atol"))
+        target.write("%-50s = -1 \n"%("diffusion.mg_rtol"))
+        target.write("%-50s = 1e-4 \n"%("diffusion.mg_atol "))
+        target.write("%-50s = -1 \n"%("temperature_diffusion.mg_rtol"))
+        target.write("%-50s = 1e-4 \n"%("temperature_diffusion.mg_atol"))
+        target.write("%-50s = -1 \n"%("tke_diffusion.mg_rtol"))
+        target.write("%-50s = 1e-4 \n"%("tke_diffusion.mg_atol"))
 
     
     def createAMR1dSolver(self):
@@ -657,7 +662,10 @@ class amrBackend():
         allowed_error=self.yamlFile["allowedError"]
         self.metMastHeight=self.yamlFile["metMastHeight"]
         self.metMastWind=[wind[0],wind[1]]
-        zheight=2048
+        try:
+            zheight=self.yamlFile["ransDomainTop"]
+        except:
+            zheight=4096
         dz=8.0
         npts=int(zheight/dz)
         num_of_steps=30000
@@ -665,7 +673,7 @@ class amrBackend():
         roughness_length=self.refRoughness
         terrain_ht=0
         coriolis=self.caseCenterLat
-        inv_height=1500
+        inv_height=np.amax(self.terrainX3)+1500
         inv_width=0
         inv_strength=0
         lapse_rate=0.003
@@ -691,6 +699,7 @@ class amrBackend():
         try:
             initial_ug=self.yamlFile["initialUG"]
             initial_vg=self.yamlFile["initialVG"]
+            print("User-Specified:",initial_ug,initial_vg)
         except:
             M=np.sqrt(wind[0]**2+wind[1]**2)
             wt=4e-3*M
@@ -703,7 +712,6 @@ class amrBackend():
             else:
                 initial_ug=wind[0]+wt/(f*zi)*wind[1]
                 initial_vg=wind[1]-wt/(f*zi)*wind[0]
-        print(initial_ug,initial_vg)
         include_ti=False
         initial_ug,initial_vg,z0=self.generate_profile(allowed_error,self.metMastHeight,self.metMastWind,npts,zheight,roughness_length,terrain_ht, \
                         coriolis,inv_height,inv_width,inv_strength,lapse_rate,heat_flux_mode,mol_length,num_of_steps,tolerance, \
@@ -723,7 +731,7 @@ class amrBackend():
             target.write("%-50s = true\n"%(stringtowrite))
             stringtowrite="ABL.rans_1dprofile_file"
             target.write('%-50s = "rans_1d.info" \n'%(stringtowrite))
-            zstart=2000.0
+            zstart=self.terrainZMax+self.ABLHeight
             if(self.turbulence_model=="RANS"):
                 stringtowrite="ABL.meso_sponge_start "
                 target.write('%-50s = %g \n'%(stringtowrite,zstart))
@@ -762,26 +770,54 @@ class amrBackend():
             pass
         else:
             for i in range(0,len(zvals)):
-                newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
-            newtarget.close()
+                if(zvals[i]>2048):
+                    tkevalue=tkevals[i]
+                    fixValue=True
+                    print("Neutral fixer")
+                    break
+            for i in range(0,len(zvals)):
+                if(zvals[i]>2048 and fixValue):
+                    newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevalue))
+                else:
+                    newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevalue))
+            newtarget.close()  
         try:
             newtarget=open(Path(self.caseParent,self.caseName,"terrain","rans_1d.info").as_posix(),"w")
         except:
             pass 
         else:
             for i in range(0,len(zvals)):
-                newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
-            newtarget.close()   
+                if(zvals[i]>2048):
+                    tkevalue=tkevals[i]
+                    fixValue=True
+                    print("Neutral fixer")
+                    break
+            for i in range(0,len(zvals)):
+                if(zvals[i]>2048 and fixValue):
+                    newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevalue))
+                else:
+                    newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevalue))
+            newtarget.close()  
         try:
             newtarget=open(Path(self.caseParent,self.caseName,"terrainTurbine","rans_1d.info").as_posix(),"w")
         except:
             pass 
         else:
+            tkevalue=1e-10
             for i in range(0,len(zvals)):
-                newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
-            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevals[i]))
+                if(zvals[i]>2048):
+                    tkevalue=tkevals[i]
+                    fixValue=True
+                    print("Neutral fixer")
+                    break
+            for i in range(0,len(zvals)):
+                if(zvals[i]>2048 and fixValue):
+                    newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevalue))
+                else:
+                    newtarget.write("%g %g %g 0 %g\n"%(zvals[i],uvals[i],vvals[i],tkevals[i]))
+            newtarget.write("%g %g %g 0 %g\n"%(self.maxZ,uvals[i],vvals[i],tkevalue))
             newtarget.close()    
 
     # Modify this function 
@@ -798,7 +834,7 @@ class amrBackend():
         from amr1DSolver import amr1dSolver
         pathToWrite=Path(self.caseParent,self.caseName,"1dSolverOutput.info").as_posix()
         # Coarse Run 
-        zheight=2048
+        zheight=self.yamlFile["ransDomainTop"]
         dz=32.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
@@ -884,7 +920,7 @@ class amrBackend():
         # Need to interpolate 
         # Coarse Run 
         start=time.time()
-        zheight=2048
+        zheight=self.yamlFile["ransDomainTop"]
         dz=16.0
         npts=int(zheight/dz)
         znew=np.linspace(0,zheight,npts)
@@ -1153,6 +1189,11 @@ class amrBackend():
             fieldRefinement=True
         if(fieldRefinement):
             level=max(level,1)
+        try:
+            refineTerrainMaxLevel=self.yamlFile["refineTerrainMaxLevel"]
+            level=max(level,refineTerrainMaxLevel)
+        except:
+            pass
         stringtowrite="amr.max_level "
         target.write("%-50s = %d\n"%(stringtowrite,level))
         if(self.caseType=="terrain_noprecursor"):

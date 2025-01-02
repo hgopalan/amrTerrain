@@ -2,20 +2,20 @@
 solver: "amrWind"
 # Directories
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "wfip2_50km_rans_noprecursor"
+caseFolder: "markbygden_450km_rans_noprecursor"
 # 4 Case types: precursor, terrain, terrain_noprecursor and turbine 
 caseType: "terrain_noprecursor"
 # Placeholders 
 caseInitial: "amr"
 domainType: "center"
 # Center point around which to generate terrain 
-centerLat: 45.63374
-centerLon: -120.66047
+centerLat: 65.5
+centerLon: 20.5
 # Distances measured in meters from center lat to chop the tiff file 
-west: 25000
-east: 25000
-south: 25000
-north: 25000
+west: 225000
+east: 225000
+south: 225000
+north: 225000
 # Smoothing from terrain to flat surface in meters 
 westSlope: 2500
 eastSlope: 2500
@@ -28,11 +28,11 @@ northFlat: 2500
 southFlat: 2500 
 # Meshing 
 # Horizontal cell size in meters 
-cellSize: 128
+cellSize: 256
 # Vertical cell size is cellSize/verticalAR 
 verticalAR: 4
 # Size to write the terrain file in m 
-terrainSize: 32
+terrainSize: 128
 # Turbulence Model: RANS/LES 
 turbulenceModel: "RANS"
 # Placeholder for initial wind if no met mast is specified 
@@ -52,6 +52,8 @@ writeTerrain: true
 # Runs the 1-D rans solver to create initialconditions 
 # Mandatory for terrain_noprecursor to avoid solver divergence 
 rans1D: true
+# Maximum height of the 1-D domain 
+ransDomainTop: 4096
 # Errors between met-mast wind and the 1-D solver computed 
 # met-mast height winds 
 allowedError: 0.05
@@ -86,9 +88,9 @@ refineTerrain: true
 # Restrict the AMR to the region of interest to reduce cell count 
 refineLow: [-3000,-3000,300]
 refineHigh: [3000,3000,600]
-refineTerrainMaxLevel: 3 
-initialUG: 14.8533 
-initialVG: 1.28972
+refineTerrainMaxLevel: 4
+initialUG: 15.4041
+initialVG: 1.18694
 # Comment out the line below and change path to use user-specified tiff file 
-#useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/output_SRTMGL1.tif"
+useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/tiffiles/markbygden/output_hh.tif"
 

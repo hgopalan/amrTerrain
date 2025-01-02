@@ -2,20 +2,20 @@
 solver: "amrWind"
 # Directories
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "wfip2_50km_rans_noprecursor"
+caseFolder: "reunion_90km_les_noprecursor"
 # 4 Case types: precursor, terrain, terrain_noprecursor and turbine 
 caseType: "terrain_noprecursor"
 # Placeholders 
 caseInitial: "amr"
 domainType: "center"
 # Center point around which to generate terrain 
-centerLat: 45.63374
-centerLon: -120.66047
+centerLat: -21.1
+centerLon: 55.52
 # Distances measured in meters from center lat to chop the tiff file 
-west: 25000
-east: 25000
-south: 25000
-north: 25000
+west: 45000
+east: 45000
+south: 45000
+north: 45000
 # Smoothing from terrain to flat surface in meters 
 westSlope: 2500
 eastSlope: 2500
@@ -32,9 +32,9 @@ cellSize: 128
 # Vertical cell size is cellSize/verticalAR 
 verticalAR: 4
 # Size to write the terrain file in m 
-terrainSize: 32
+terrainSize: 128
 # Turbulence Model: RANS/LES 
-turbulenceModel: "RANS"
+turbulenceModel: "LES"
 # Placeholder for initial wind if no met mast is specified 
 windX: 10.0
 windY: 0.0 
@@ -52,6 +52,8 @@ writeTerrain: true
 # Runs the 1-D rans solver to create initialconditions 
 # Mandatory for terrain_noprecursor to avoid solver divergence 
 rans1D: true
+# Maximum height of the 1-D domain 
+ransDomainTop: 4096
 # Errors between met-mast wind and the 1-D solver computed 
 # met-mast height winds 
 allowedError: 0.05
@@ -87,8 +89,8 @@ refineTerrain: true
 refineLow: [-3000,-3000,300]
 refineHigh: [3000,3000,600]
 refineTerrainMaxLevel: 3 
-initialUG: 14.8533 
-initialVG: 1.28972
+initialUG: 15.4041
+initialVG: 1.18694
 # Comment out the line below and change path to use user-specified tiff file 
-#useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/output_SRTMGL1.tif"
+useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Codes/tiffiles/reunion/output_SRTMGL1.tif"
 
