@@ -266,11 +266,12 @@ class amrBackend():
         else:
             self.terrainZMax=ranges[idx+1]
         # Add 1 km for ABL and 2 km for Rayleigh
-        self.ABLHeight=2048
-        self.RDLHeight=2048
-        if(self.terrainZMax>self.ABLHeight):
-            print("Not enough blockage")
-            self.ABLHeight=max(2*self.terrainZMax,2*self.ABLHeight)
+        # self.ABLHeight=2048
+        # self.RDLHeight=2048
+        # if(self.terrainZMax>self.ABLHeight):
+        #     print("Not enough blockage")
+        self.ABLHeight=self.terrainZMax+max(2*self.terrainZMax,2048)
+        self.RDLHeight=max(2*self.terrainZMax,2048)
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
         print(self.maxZ)
         target.write("%-50s = %g %g %g \n"%("geometry.prob_lo",minX,minY,minZ))
@@ -298,7 +299,7 @@ class amrBackend():
     def createAMRTime(self,target,blanking=-1):
         if(self.caseType=="terrain_noprecursor"):
             if(self.turbulence_model=="RANS"):
-                self.case_end_time=1800
+                self.case_end_time=600
                 self.plotOutput=600
                 self.restartOutput=-1
             else:
@@ -665,7 +666,7 @@ class amrBackend():
         try:
             zheight=self.yamlFile["ransDomainTop"]
         except:
-            zheight=4096
+            zheight=self.terrainZMax+self.ABLHeight
         dz=8.0
         npts=int(zheight/dz)
         num_of_steps=30000
@@ -834,7 +835,10 @@ class amrBackend():
         from amr1DSolver import amr1dSolver
         pathToWrite=Path(self.caseParent,self.caseName,"1dSolverOutput.info").as_posix()
         # Coarse Run 
-        zheight=self.yamlFile["ransDomainTop"]
+        try:
+            zheight=self.yamlFile["ransDomainTop"]
+        except:
+            zheight=self.terrainZMax+self.ABLHeight
         dz=32.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
@@ -920,7 +924,10 @@ class amrBackend():
         # Need to interpolate 
         # Coarse Run 
         start=time.time()
-        zheight=self.yamlFile["ransDomainTop"]
+        try:
+            zheight=self.yamlFile["ransDomainTop"]
+        except:
+            zheight=self.terrainZMax+self.ABLHeight
         dz=16.0
         npts=int(zheight/dz)
         znew=np.linspace(0,zheight,npts)
@@ -1049,11 +1056,7 @@ class amrBackend():
             warnings.warn("Missing maximum Y values. No refinements written")
             return 
         try:
-            refinementMinz=self.yamlFile["refinementMinZ"]
-        except:
-            refinementMinz=0*refinementMiny
-        try:
-            refinementMaxz=self.yamlFile["refinementMaxZ"]
+            refinementMaxz=self.yamlFile["heightAboveTerrain"]
         except:
             warnings.warn("Missing maximum Z values. No refinements written")
             return 
@@ -1073,21 +1076,21 @@ class amrBackend():
             fieldRefinement=self.yamlFile['refineTerrain']
         except:
             fieldRefinement=False
-        else:
-            fieldRefinement=True
         target.write("# tagging\n")
         for i in range(len(refinementRegions)):
             if(fieldRefinement and i==0):
-                target.write("%-50s = f1 %s "%("tagging.labels",refinementRegions[i]))
+                target.write("%-50s = f1 %s %s "%("tagging.labels",refinementRegions[i],refinementRegions[i]+"terrain"))
             elif(i==0):
-                target.write("%-50s = %s "%("tagging.labels",refinementRegions[i]))
+                target.write("%-50s = %s %s "%("tagging.labels",refinementRegions[i],refinementRegions[i]+"terrain"))
             else:
-                target.write(" %s "%(refinementRegions[i]))
+                target.write(" %s %s "%(refinementRegions[i],refinementRegions[i]+"terrain"))
         for i in range(len(metMastRegions)):
-            if(len(refinementRegions)==0 and fieldRefinement==False):
-                target.write("%-50s = %s "%("tagging.labels",metMastRegions[i]))
+            if(i==0 and len(refinementRegions)==0 and fieldRefinement==False):
+                target.write("%-50s = f1 %s %s "%("tagging.labels",metMastRegions[i],metMastRegions[i]+"terrain"))
+            elif(i==0 and len(refinementRegions)==0 and fieldRefinement==False):
+                target.write("%-50s = %s %s "%("tagging.labels",metMastRegions[i],metMastRegions[i]+"terrain"))
             else:
-                target.write(" %s "%(metMastRegions[i]))           
+                target.write(" %s %s "%(metMastRegions[i],metMastRegions[i]+"terrain"))           
         target.write("\n")
         if(fieldRefinement):
             target.write("%-50s = FieldRefinement\n"%("tagging.f1.type"))
@@ -1102,6 +1105,22 @@ class amrBackend():
                 target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],box_lo[2]))
                 target.write("%-50s = %g %g %g \n"%("tagging.f1.box_hi",box_hi[0],box_hi[1],box_hi[2]))
         for i in range(0,len(refinementRegions)):
+            # Find the z terrain location for data
+            error=10000 
+            for j in range(0,len(self.terrainX1)):
+                residual=np.sqrt((self.terrainX1[j]-refinementMinx[i])**2+(self.terrainX2[j]-refinementMiny[i])**2)
+                if(residual<error):
+                    error=residual
+                    zterrainmin=self.terrainX3[j]
+            error=10000 
+            for j in range(0,len(self.terrainX1)):
+                residual=np.sqrt((self.terrainX1[j]-refinementMaxx[i])**2+(self.terrainX2[j]-refinementMaxy[i])**2)
+                if(residual<error):
+                    error=residual
+                    zterrainmax=self.terrainX3[j]
+            zstart=min(zterrainmin,zterrainmax)-100
+            zlength=abs(zterrainmin-zterrainmax)+refinementMaxz[i]
+            print(zstart,zlength)
             taggingstring="tagging."+refinementRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))
             taggingstring="tagging."+refinementRegions[i]+".shapes"
@@ -1113,8 +1132,7 @@ class amrBackend():
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".type"
             target.write("%-50s = box\n"%(taggingstring))
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".origin"
-            target.write("%-50s = %g %g %g\n"%(taggingstring, \
-                        refinementMinx[i],refinementMiny[i],refinementMinz[i]))
+            target.write("%-50s = %g %g %g\n"%(taggingstring,refinementMinx[i],refinementMiny[i],zstart))
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".xaxis"
             target.write("%-50s = %g 0 0\n"%(taggingstring,
                                              refinementMaxx[i]-refinementMinx[i]))
@@ -1122,8 +1140,17 @@ class amrBackend():
             target.write("%-50s = 0 %g 0\n"%(taggingstring,
                                              refinementMaxy[i]-refinementMiny[i]))
             taggingstring="tagging."+refinementRegions[i]+".object"+str(i)+".zaxis"
-            target.write("%-50s = 0 0 %g\n"%(taggingstring,
-                                             refinementMaxz[i]-refinementMinz[i]))
+            target.write("%-50s = 0 0 %g\n"%(taggingstring,zlength))
+            taggingstring="tagging."+refinementRegions[i]+"terrain"+".type"
+            target.write("%-50s = FieldRefinement\n"%(taggingstring))
+            taggingstring="tagging."+refinementRegions[i]+"terrain"+".field_name"
+            target.write("%-50s = terrain_blank\n"%(taggingstring))
+            taggingstring="tagging."+refinementRegions[i]+"terrain"+".grad_error"
+            target.write("%-50s = 0.1 0.1 0.1 0.1 0.1 0.1\n"%(taggingstring))
+            taggingstring="tagging."+refinementRegions[i]+"terrain"+".box_lo"
+            target.write("%-50s = %g %g %g \n"%(taggingstring,refinementMinx[i],refinementMiny[i],zstart))
+            taggingstring="tagging."+refinementRegions[i]+"terrain"+".box_hi"
+            target.write("%-50s = %g %g %g \n"%(taggingstring,refinementMaxx[i],refinementMaxy[i],zstart+abs(zterrainmin-zterrainmax)+200))
         
         if(len(metMastRegions)==0):
             return 
@@ -1145,8 +1172,18 @@ class amrBackend():
             metMastRefinementLevel=self.yamlFile["metMastRefinementLevel"]
         except:
             metMastRefinementLevel=2+0*metMastX
-
+        try:
+            metMastHeight=self.yamlFile["metMastHeight"]
+        except:
+            metMastHeight=200
         for i in range(0,len(metMastRegions)):
+            error=10000 
+            for j in range(0,len(self.terrainX1)):
+                residual=np.sqrt((self.terrainX1[j]-metMastX[i])**2+(self.terrainX2[j]-metMastY[i])**2)
+                if(residual<error):
+                    error=residual
+                    zterrainmin=self.terrainX3[j]
+            zstart=zterrainmin-100
             taggingstring="tagging."+metMastRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))
             taggingstring="tagging."+metMastRegions[i]+".shapes"
@@ -1159,14 +1196,29 @@ class amrBackend():
             target.write("%-50s = cylinder \n"%(taggingstring))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".start"
             target.write("%-50s = %g %g %g\n"%(taggingstring, \
-                        metMastX[i],metMastY[i],0))
+                        metMastX[i],metMastY[i],zterrainmin))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".end"
             target.write("%-50s = %g %g %g\n"%(taggingstring, \
-                        metMastX[i],metMastY[i],500))
+                        metMastX[i],metMastY[i],zterrainmin+metMastHeight+100))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".outer_radius"
             target.write("%-50s = %g\n"%(taggingstring,metMastRadius[i]))
             taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".inner_radius"
             target.write("%-50s = %g\n"%(taggingstring,0.0))
+            taggingstring="tagging."+metMastRegions[i]+"terrain"+".type"
+            target.write("%-50s = FieldRefinement\n"%(taggingstring))
+            taggingstring="tagging."+metMastRegions[i]+"terrain"+".field_name"
+            target.write("%-50s = terrain_blank\n"%(taggingstring))
+            taggingstring="tagging."+metMastRegions[i]+"terrain"+".grad_error"
+            target.write("%-50s = 0.1 0.1 0.1 0.1 0.1 0.1\n"%(taggingstring))
+            xmin=metMastX[i]-metMastRadius[i]
+            xmax=metMastX[i]+metMastRadius[i]
+            ymin=metMastY[i]-metMastRadius[i]
+            ymax=metMastY[i]+metMastRadius[i]
+            taggingstring="tagging."+metMastRegions[i]+"terrain"+".box_lo"
+            target.write("%-50s = %g %g %g \n"%(taggingstring,xmin,ymin,zstart))
+            taggingstring="tagging."+metMastRegions[i]+"terrain"+".box_hi"
+            target.write("%-50s = %g %g %g \n"%(taggingstring,xmax,ymax,zstart+metMastHeight))
+
         if(len(refinementLevels)>0):
             try:
                 refinementLevels=self.yamlFile["refinementLevels"]
