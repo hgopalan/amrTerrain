@@ -3,6 +3,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
                    flat_west,flat_east,flat_south,flat_north, use_tiff, \
                    write_stl,longmin,longmax,latmin,latmax):
     import os
+    from pathlib import Path
     import sys
     import numpy as np
     import matplotlib.pyplot as plt
@@ -76,15 +77,19 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     #srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
     srtm_bounds = west, south, east, north = (refloc[1]+longmin,refloc[0]+latmin,refloc[1]+longmax,refloc[0]+latmax)
     # this will be downloaded:
-    srtm_output=f'{outdir}/{case}.tif' # need absolute path for GDAL
+    srtm_output = Path(f'{outdir}/{case}.tif').resolve() # need absolute path for GDAL
+    
     if(tiffile==' '):
         pass
     else:
         srtm_output=tiffile
         print("SRTM:",srtm_output)
+    
     srtm = SRTM(srtm_bounds, fpath=srtm_output, product=product)
+    
     if(tiffile==' '):
         srtm.download()
+        print(f'output tiff: {tiffile}', flush=True)
     x,y,z = srtm.to_terrain()
     xref,yref,_,_ = utm.from_latlon(*refloc[:2],force_zone_number=srtm.zone_number)
     vmin,vmax = 1500,2500
