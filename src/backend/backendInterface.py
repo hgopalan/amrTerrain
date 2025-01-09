@@ -363,9 +363,9 @@ class amrBackend():
         # Writing io 
         target.write("%-50s = false \n"%("io.output_default_variables"))
         if(self.turbulence_model=="RANS"):
-            target.write("%-50s = velocity temperature mu_turb tke pressure \n"%("io.outputs"))
+            target.write("%-50s = velocity temperature mu_turb tke terrain_vf \n"%("io.outputs"))
         else:
-            target.write("%-50s = velocity temperature mu_turb pressure \n"%("io.outputs"))
+            target.write("%-50s = velocity temperature mu_turb terrain_vf \n"%("io.outputs"))
         if(blanking==1):
             target.write("%-50s = terrain_blank terrain_drag \n"%("io.int_outputs"))
 
@@ -579,6 +579,21 @@ class amrBackend():
         target.write("%-50s = %g\n"%("RayleighDamping.length_sloped_damping",512))
         target.write("%-50s = %g\n"%("RayleighDamping.length_complete_damping",self.maxZ-startRayleigh-512))
         target.write("%-50s = 20.0\n"%("RayleighDamping.time_scale"))     
+        try:
+            metmast_horizontal_radius=self.yamlFile["metmast_horizontal_radius"]
+        except:
+            metmast_horizontal_radius=500.0
+        try:
+            metmast_vertical_radius=self.yamlFile["metmast_vertical_radius"]
+        except:
+            metmast_vertical_radius=5.0
+        try:
+            metmast_damping_radius=self.yamlFile["metmast_damping_radius"]
+        except:
+            metmast_damping_radius=100.0
+        target.write("%-50s = %g\n"%("ABL.metmast_horizontal_radius",metmast_horizontal_radius))
+        target.write("%-50s = %g\n"%("ABL.metmast_vertical_radius",metmast_vertical_radius))
+        target.write("%-50s = %g\n"%("ABL.metmast_damping_radius",metmast_damping_radius))
 
     def createAMRBC(self,target,inflowOutflow=-1):
         target.write("# BC \n")
@@ -847,7 +862,7 @@ class amrBackend():
             zheight=self.yamlFile["ransDomainTop"]
         except:
             zheight=self.terrainZMax+self.ABLHeight
-        dz=32.0
+        dz=48.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
         ug=[initial_ug,initial_vg]
@@ -936,7 +951,7 @@ class amrBackend():
             zheight=self.yamlFile["ransDomainTop"]
         except:
             zheight=self.terrainZMax+self.ABLHeight
-        dz=16.0
+        dz=24.0
         npts=int(zheight/dz)
         znew=np.linspace(0,zheight,npts)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
