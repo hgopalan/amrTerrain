@@ -1170,33 +1170,39 @@ class amrBackend():
         if(len(metMastRegions)==0):
             pass
         else:
-            # try:
-            #     self.metMastX=self.yamlFile["self.metMastX"]
-            # except:
-            #     warnings.warn("Missing X values. No refinements written")
-            #     return    
-            # try:
-            #     self.metMastY=self.yamlFile["self.metMastY"]
-            # except:
-            #     warnings.warn("Missing Y values. No refinements written")
-            #     return        
             try:
-                metMastLon=self.yamlFile["metMastLon"]
+                metMastLatLon=self.yamlFile["metMastLatLon"]
             except:
-                warnings.warn("Missing Longitude values. No refinements written")
-                return    
-            try:
-                metMastLat=self.yamlFile["metMastLat"]
-            except:
-                warnings.warn("Missing Latitude values. No refinements written")
-                return        
-            self.metMastX=metMastLat
-            self.metMastY=metMastLon
-            for i in range(0,len(metMastRegions)):
-                self.metMastX[i],self.metMastY[i]=self.srtm.to_xy(metMastLat[i],metMastLon[i])
-                self.metMastX[i]=self.metMastX[i]-self.xref
-                self.metMastY[i]=self.metMastY[i]-self.yref
-            print(self.metMastX,self.metMastY)
+                metMastLatLon=False 
+            if(not metMastLatLon):
+                try:
+                    self.metMastX=self.yamlFile["self.metMastX"]
+                except:
+                    warnings.warn("Missing X values. No refinements written")
+                    return    
+                try:
+                    self.metMastY=self.yamlFile["self.metMastY"]
+                except:
+                    warnings.warn("Missing Y values. No refinements written")
+                    return        
+            else: 
+                try:
+                    metMastLon=self.yamlFile["metMastLon"]
+                except:
+                    warnings.warn("Missing Longitude values. No refinements written")
+                    return    
+                try:
+                    metMastLat=self.yamlFile["metMastLat"]
+                except:
+                    warnings.warn("Missing Latitude values. No refinements written")
+                    return        
+                self.metMastX=metMastLat
+                self.metMastY=metMastLon
+                for i in range(0,len(metMastRegions)):
+                    self.metMastX[i],self.metMastY[i]=self.srtm.to_xy(metMastLat[i],metMastLon[i])
+                    self.metMastX[i]=self.metMastX[i]-self.xref
+                    self.metMastY[i]=self.metMastY[i]-self.yref
+                print(self.metMastX,self.metMastY)
             try:
                 metMastRadius=self.yamlFile["metMastRadius"]
             except:
@@ -1216,7 +1222,6 @@ class amrBackend():
                     if(residual<error):
                         error=residual
                         zterrainmin=self.terrainX3[j]
-                zstart=zterrainmin-100
                 taggingstring="tagging."+metMastRegions[i]+".type"
                 target.write("%-50s = GeometryRefinement\n"%(taggingstring))
                 taggingstring="tagging."+metMastRegions[i]+".shapes"
@@ -1248,9 +1253,9 @@ class amrBackend():
                 ymin=self.metMastY[i]-metMastRadius[i]
                 ymax=self.metMastY[i]+metMastRadius[i]
                 taggingstring="tagging."+metMastRegions[i]+"terrain"+".box_lo"
-                target.write("%-50s = %g %g %g \n"%(taggingstring,xmin,ymin,zstart))
+                target.write("%-50s = %g %g %g \n"%(taggingstring,xmin,ymin,zterrainmin-50))
                 taggingstring="tagging."+metMastRegions[i]+"terrain"+".box_hi"
-                target.write("%-50s = %g %g %g \n"%(taggingstring,xmax,ymax,zstart+metMastHeight))
+                target.write("%-50s = %g %g %g \n"%(taggingstring,xmax,ymax,zterrainmin+50))
         level=0
         try:
             level=max(level,max(refinementLevels))

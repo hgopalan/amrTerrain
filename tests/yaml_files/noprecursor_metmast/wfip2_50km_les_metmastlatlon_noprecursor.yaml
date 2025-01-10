@@ -59,10 +59,11 @@ allowedError: 0.05
 writeTerrainSampling: true 
 verticalLevels: [10,80,100,200]
 # Location of met-masts 
+metMastLatLon: True
 metMastNames: ["mast1"]
 metMastLat: [45.63374]
 metMastLon: [-120.66047]
-metMastRadius: [1000]
+metMastRadius: [3000]
 metMastRefinementLevel: [3]
 metMastLineSampling: true 
 # Use one of the met-masts as driving wind 
@@ -75,7 +76,7 @@ metMastHeight: 10
 # Refinement level set to 1 if all refinements are turned off 
 refineTerrain: true
 # Restrict the AMR to the region of interest to reduce cell count 
-refineLow: [-5000,-5000,300]
-refineHigh: [5000,5000,600]
+refineLow: [-10000,-10000,300]
+refineHigh: [10000,10000,600]
 
 
