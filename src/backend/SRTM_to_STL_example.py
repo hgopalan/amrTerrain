@@ -77,12 +77,14 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     #srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
     srtm_bounds = west, south, east, north = (refloc[1]+longmin,refloc[0]+latmin,refloc[1]+longmax,refloc[0]+latmax)
     # this will be downloaded:
-    srtm_output = Path(f'{outdir}/{case}.tif').resolve() # need absolute path for GDAL
+    # Get the absolute path needed for CGAL 
+    # Force to native path (Windows) using str().
+    srtm_output = str(Path(f'{outdir}/{case}.tif').resolve()) # need absolute path for GDAL
     
     if(tiffile==' '):
         pass
     else:
-        srtm_output=tiffile
+        srtm_output = tiffile
         print("SRTM:",srtm_output)
     
     srtm = SRTM(srtm_bounds, fpath=srtm_output, product=product)
