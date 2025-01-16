@@ -69,9 +69,9 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     x1 = np.arange(xmin, xmax, ds)
     y1 = np.arange(ymin, ymax, ds)
     xsurf,ysurf = np.meshgrid(x1, y1, indexing='ij')
-    print('The output bounding box is')
-    print('xmin: ',xsurf[0,0], '\nxmax: ',xsurf[-1,-1])
-    print('ymin: ',ysurf[0,0], '\nymax: ',ysurf[-1,-1])
+    # print('The output bounding box is')
+    # print('xmin: ',xsurf[0,0], '\nxmax: ',xsurf[-1,-1])
+    # print('ymin: ',ysurf[0,0], '\nymax: ',ysurf[-1,-1])
     # Terrain region to clip from the digital elevation model (DEM)
     #srtm_bounds = west, south, east, north = (refloc[1]-0.5, refloc[0]-0.4, refloc[1]+0.62, refloc[0]+0.42)
     srtm_bounds = west, south, east, north = (refloc[1]+longmin,refloc[0]+latmin,refloc[1]+longmax,refloc[0]+latmax)
@@ -81,7 +81,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
         pass
     else:
         srtm_output=tiffile
-        print("SRTM:",srtm_output)
+        #print("SRTM:",srtm_output)
     srtm = SRTM(srtm_bounds, fpath=srtm_output, product=product)
     if(tiffile==' '):
         srtm.download()
@@ -91,11 +91,11 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     if(refloc[0]<0):
         yref=yref-10000000
     print(xref,yref)
-    print(np.amax(x),np.amin(x),np.amax(x)-np.amin(x))
-    print(np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
-    #y=y+yref-0.5*(np.amax(y)+np.amin(y))
-    print("Center:",0.5*(np.amax(y)+np.amin(y)))
-    print("After mixing:",np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
+    # print(np.amax(x),np.amin(x),np.amax(x)-np.amin(x))
+    # print(np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
+    # #y=y+yref-0.5*(np.amax(y)+np.amin(y))
+    # print("Center:",0.5*(np.amax(y)+np.amin(y)))
+    # print("After mixing:",np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
     if(np.amin(z)<0):
         z[z < 0] = 0
     #exit(-1)
@@ -342,7 +342,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
 
 
     # ## 6. Write out terrain surface STL
-    print(outdir,xsurf.shape)
+    #print(outdir,xsurf.shape)
     import pyvista as pv 
     x1=xsurf.flatten(order='F')
     y1=ysurf.flatten(order='F')

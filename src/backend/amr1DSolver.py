@@ -101,7 +101,6 @@ class amr1dSolver:
         self.inversion_width=width
         self.lapse_rate=rate 
 
-
     def run_simulation(self,end_time,convergence=1e-4,forceMetMastWind=False,metMastHeight=100,metMastX=10,metmastY=0):
         self.counter=0
         self.start_time=0
@@ -164,9 +163,9 @@ class amr1dSolver:
                     self.temperature[i]=self.t_ref
                 else:
                     self.temperature[i]=self.temperature[i-1]+self.lapse_rate*max(self.z[i]-self.z[i-1],0.0)
-            self.nut[i]=1e-5
-            self.tke[i]=0.1
-            self.lscale[i]=0.1
+            self.nut[i]=0.41**2*self.z[i]*(1-min(self.z[i],790)/800)**2 #1e-5
+            self.tke[i]=0.41**2*self.z[i]*(1-min(self.z[i],790)/800)**2 #0.1
+            self.lscale[i]=self.z[i]*(1-min(self.z[i],790)/800)**2 #0.1
             self.nutPrime[i]=self.nut[i]
             self.sigmaT[i]=1.0
         if(self.lower==0):
@@ -329,6 +328,7 @@ class amr1dSolver:
             if(i==self.zloc[j]):
                 forcing=-(self.ux[i]-self.uxlist[j])/self.dt  
         self.ux[i]=self.ux[i]+dt*(term1+term2+coriolis+geostrophic+forcing)
+        return 1 
     
     def update_windspeed_y(self,i,dt):
         term1=self.nut[i]*(self.uy[i+1]-2*self.uy[i]+self.uy[i-1])/self.dz**2
@@ -345,11 +345,13 @@ class amr1dSolver:
             if(i==self.zloc[j]):
                 forcing=-(self.uy[i]-self.vxlist[j])/self.dt
         self.uy[i]=self.uy[i]+dt*(term1+term2+coriolis+geostrophic+forcing)
+        return 1 
 
     def update_temperature(self,i,dt):
         term1=self.nut[i]/self.sigmaT[i]*(self.temperature[i+1]-2*self.temperature[i]+self.temperature[i-1])/self.dz**2
         term2=1/self.dz*(self.nut[i]/self.sigmaT[i]-self.nut[i-1]/self.sigmaT[i-1])*1/self.dz*(self.temperature[i]-self.temperature[i-1])
         self.temperature[i]=self.temperature[i]+dt*(term1+term2)
+        return 1 
 
     def update_turbulence(self,i,dt):
         term1=self.nut[i]*(self.tke[i+1]-2*self.tke[i]+self.tke[i-1])/self.dz**2
@@ -382,6 +384,7 @@ class amr1dSolver:
         self.sigmaT[i]=(1+0.193*Rt)/(1+0.0302*Rt)
         self.nutPrime[i]=cmuprime*np.sqrt(self.tke[i])*lscale
         self.lscale[i]=lscale
+        return 1 
     
     def compute_zi(self):
         M=self.ux**2+self.uy**2

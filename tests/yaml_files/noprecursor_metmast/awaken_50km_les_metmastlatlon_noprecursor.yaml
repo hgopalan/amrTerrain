@@ -2,15 +2,15 @@
 solver: "amrWind"
 # Directories
 caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI"
-caseFolder: "wfip2_50km_les_metmastlatlon_noprecursor"
+caseFolder: "awaken_50km_les_metmastlatlon_noprecursor"
 # 4 Case types: precursor, terrain, terrain_noprecursor and turbine 
 caseType: "terrain_noprecursor"
 # Placeholders 
 caseInitial: "amr"
 domainType: "center"
 # Center point around which to generate terrain 
-centerLat: 45.63374
-centerLon: -120.66047
+centerLat: 36.38
+centerLon: -97.40
 # Distances measured in meters from center lat to chop the tiff file 
 west: 25000
 east: 25000
@@ -61,12 +61,12 @@ verticalLevels: [10,80,100,200]
 # Location of met-masts 
 metMastLatLon: True
 metMastNames: ["mast1"]
-metMastLat: [45.63374]
-metMastLon: [-120.66047]
+metMastLat: [36.38]
+metMastLon: [-97.40]
 # Test 1 
-#metMastRadius: [3000]
+metMastRadius: [3000]
 # Test 2 
-metMastRadius: [6000]
+#metMastRadius: [6000]
 metMastRefinementLevel: [3]
 metMastLineSampling: true 
 # Use one of the met-masts as driving wind 
@@ -78,14 +78,14 @@ metMastHeight: 10
 # from refinementLevels or metMastRefinementLevel 
 # Refinement level set to 1 if all refinements are turned off 
 refineTerrain: true
+refineTerrainMaxLevel: 4 
 # Restrict the AMR to the region of interest to reduce cell count 
 # Test 1 
-# refineLow: [-10000,-10000,300]
-# refineHigh: [10000,10000,600]
+refineLow: [-10000,-10000,300]
+refineHigh: [10000,10000,600]
 # Test 2 
-refineLow: [-20000,-20000,300]
-refineHigh: [20000,20000,600]
-initialUG: 23.3307 
-initialVG: -8.11311
+#refineLow: [-20000,-20000,300]
+#refineHigh: [20000,20000,600]
+
 
 

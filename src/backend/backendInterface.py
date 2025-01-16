@@ -271,10 +271,10 @@ class amrBackend():
         # self.RDLHeight=2048
         # if(self.terrainZMax>self.ABLHeight):
         #     print("Not enough blockage")
-        self.ABLHeight=self.terrainZMax+max(2*self.terrainZMax,2048)
-        self.RDLHeight=max(2*self.terrainZMax,2048)
+        self.ABLHeight=max(self.terrainZMax,2048)
+        self.RDLHeight=max(self.terrainZMax,2048)
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
-        print(self.maxZ)
+        print(self.terrainZMax,self.ABLHeight,self.RDLHeight,self.maxZ)
         target.write("%-50s = %g %g %g \n"%("geometry.prob_lo",minX,minY,minZ))
         target.write("%-50s = %g %g %g \n"%("geometry.prob_hi",maxX,maxY,self.maxZ))
         if(periodic==1):
@@ -862,7 +862,7 @@ class amrBackend():
             zheight=self.yamlFile["ransDomainTop"]
         except:
             zheight=self.terrainZMax+self.ABLHeight
-        dz=48.0
+        dz=32.0
         npts=int(zheight/dz)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
         ug=[initial_ug,initial_vg]
@@ -951,7 +951,7 @@ class amrBackend():
             zheight=self.yamlFile["ransDomainTop"]
         except:
             zheight=self.terrainZMax+self.ABLHeight
-        dz=24.0
+        dz=16.0
         npts=int(zheight/dz)
         znew=np.linspace(0,zheight,npts)
         amr1D=amr1dSolver(npts,zheight,roughness_length,terrain_ht,pathToWrite)
@@ -1117,8 +1117,21 @@ class amrBackend():
             except: 
                 pass
             else:
-                target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],box_lo[2]))
-                target.write("%-50s = %g %g %g \n"%("tagging.f1.box_hi",box_hi[0],box_hi[1],box_hi[2]))
+                minTerrain=1e30
+                maxTerrain=-1e30
+                for j in range(0,len(self.terrainX1)):
+                    if(self.terrainX1[j]>box_lo[0] and self.terrainX1[j]<box_hi[0] \
+                       and self.terrainX2[j]>box_lo[1] and self.terrainX2[j]<box_hi[1]):
+                        if(self.terrainX3[j]<minTerrain):
+                            minTerrain=self.terrainX3[j]
+                        if(self.terrainX3[j]>maxTerrain):
+                            maxTerrain=self.terrainX3[j]
+                print("Terrain Hee Haw",minTerrain,maxTerrain)
+                print("MinMax",np.amin(self.terrainX3),np.amax(self.terrainX3))
+                # target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],box_lo[2]))
+                # target.write("%-50s = %g %g %g \n"%("tagging.f1.box_hi",box_hi[0],box_hi[1],box_hi[2]))
+                target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],minTerrain+self.caseCellSize/self.caseverticalAR))
+                target.write("%-50s = %g %g %g \n"%("tagging.f1.box_hi",box_hi[0],box_hi[1],maxTerrain+self.caseCellSize))
         for i in range(0,len(refinementRegions)):
             # Find the z terrain location for data
             error=10000 
