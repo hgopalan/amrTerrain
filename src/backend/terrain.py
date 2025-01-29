@@ -279,7 +279,7 @@ class SRTM(Terrain):
             Decimal degree margin added to the bounds (default is 3")
             when clipping the downloaded elevation data.
         """
-        print("Bounds:",list(latlon_bounds))
+        #print("Bounds:",list(latlon_bounds))
         latlon_bounds = list(latlon_bounds)
         if margin is not None:
             latlon_bounds[0] -= margin
@@ -294,10 +294,10 @@ class SRTM(Terrain):
 
     def download(self,cleanup=True):
         """Download the SRTM data in GeoTIFF format"""
-        print("Downloading Data")
+        #print("Downloading Data")
         dpath = os.path.dirname(self.tiffdata)
         if not os.path.isdir(dpath):
-            print('Creating path',dpath)
+            #print('Creating path',dpath)
             os.makedirs(dpath)
         escapedpath = self.tiffdata.replace('\ ',' ').replace(' ','\ ')
         try:
@@ -310,7 +310,7 @@ class SRTM(Terrain):
             print('Note: Have elevation and gdal been installed properly?')
         if cleanup:
             elevation.clean()
-        print("Finished Downloading Data")
+        #print("Finished Downloading Data")
 
     def to_terrain(self,dx=None,dy=None,resampling=warp.Resampling.bilinear):
         """Load geospatial raster data and reproject onto specified grid
@@ -325,7 +325,7 @@ class SRTM(Terrain):
         """
         if dx is None:
             dx = self.data_products[self.product]
-            print('Output grid at ds=',dx)
+            #print('Output grid at ds=',dx)
         if dy is None:
             dy = dx
         return super().to_terrain(dx, dy=dy, resampling=resampling)
@@ -353,7 +353,7 @@ class USGS(Terrain):
         self._read_metadata(fpath)
         if latlon_bounds is None:
             latlon_bounds = self._get_bounds_from_metadata()
-            print('Bounds:',latlon_bounds)
+            #print('Bounds:',latlon_bounds)
         super().__init__(latlon_bounds,fpath=fpath)
 
     def _read_metadata(self,fpath):
@@ -467,7 +467,7 @@ def combine_raster_data(filelist,dtype=Terrain,latlon_bounds=None,
 
     # write out merged dataset
     profile = rasterio.open(filelist[0]).profile
-    print('Raster profile:',profile)
+    #('Raster profile:',profile)
     with rasterio.open(output,'w',**profile) as dst:
         dst.write(merged)
 

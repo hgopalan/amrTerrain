@@ -1,0 +1,20 @@
+# Setup for performing RANS simulations in AMR-Wind with terrain and no precursor simulations  
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/awaken_50kmles_multidir"
+caseFolder: "awaken_noprecursor"
+centerLat: 36.38
+centerLon: -97.40
+farmRadius: 25000 
+metMastLatLon: True
+metMastNames: ["mast1"]
+metMastLat: [36.38]
+metMastLon: [-97.40]
+metMastWind: [7.071,7.071]
+metMastHeight: 100
+refineTerrain: true
+refineLow: [-10000,-10000]
+refineHigh: [10000,10000]
+
+
+
+
+

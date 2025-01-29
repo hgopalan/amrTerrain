@@ -15,8 +15,8 @@ class amrBackend():
     def __init__(self,yamlFile):
         self.yamlFilePath = Path(yamlFile)
         self.yamlFile=yaml.safe_load(self.yamlFilePath.open())
-        self.caseCellSize=128 
-        self.caseverticalAR=8
+        self.caseCellSize=128  
+        self.caseverticalAR=4
         self.turbulence_model='RANS'
         self.case_end_time=7200
         self.plotOutput=1800
@@ -26,8 +26,14 @@ class amrBackend():
     def createCase(self):
         self.caseParent=self.yamlFile['caseParent']
         self.caseName=self.yamlFile['caseFolder']
-        self.caseType=self.yamlFile['caseType']
-        self.caseInitial=self.yamlFile['caseInitial']
+        try:
+            self.caseType=self.yamlFile['caseType']
+        except:
+            self.caseType="terrain_noprecursor"
+        try:
+            self.caseInitial=self.yamlFile['caseInitial']
+        except:
+            self.caseInitial='amr'
         caseDir=Path(self.caseParent,self.caseName)
         self.caseDir=caseDir.as_posix()
         caseDir.mkdir(parents=True,exist_ok=True)
@@ -44,13 +50,20 @@ class amrBackend():
         elif(self.caseType=="terrainTurbine"):
             caseTerrain=Path(self.caseParent,self.caseName,"terrainTurbine")
             self.caseTerrain=caseTerrain.as_posix()
-            caseTerrain.mkdir(parents=True,exist_ok=True)    
-        self.caseNorth=self.yamlFile['north']
-        self.caseSouth=self.yamlFile['south']
-        self.caseEast=self.yamlFile['east']
-        self.caseWest=self.yamlFile['west']
+            caseTerrain.mkdir(parents=True,exist_ok=True)  
         self.caseCenterLat=self.yamlFile["centerLat"]
-        self.caseCenterLon=self.yamlFile["centerLon"]
+        self.caseCenterLon=self.yamlFile["centerLon"]  
+        try:
+            farmRadius=self.yamlFile['farmRadius']
+            self.caseNorth=farmRadius
+            self.caseSouth=farmRadius
+            self.caseEast=farmRadius
+            self.caseWest=farmRadius
+        except:
+            self.caseNorth=self.yamlFile['north']
+            self.caseSouth=self.yamlFile['south']
+            self.caseEast=self.yamlFile['east']
+            self.caseWest=self.yamlFile['west']
         try:
             self.refHeight=self.yamlFile["refHeight"]
         except:
@@ -67,47 +80,56 @@ class amrBackend():
         try:
             self.caseverticalAR=self.yamlFile['verticalAR']
         except:
-            if(self.turbulence_model=='RANS'):
-                self.caseverticalAR=6
-            else:
-                self.caseverticalAR=4
+            self.caseverticalAR=4
         try:
             self.caseNorthSlope=self.yamlFile['northSlope']
         except:
-            self.caseNorthSlope=3000
+            self.caseNorthSlope=0.05*(self.caseNorth + self.caseSouth)
         try:
             self.caseSouthSlope=self.yamlFile['southSlope']
         except:
-            self.caseSouthSlope=3000
+            self.caseSouthSlope=0.05*(self.caseNorth + self.caseSouth)
         try:
             self.caseEastSlope=self.yamlFile['eastSlope']
         except:
-            self.caseEastSlope=3000
+            self.caseEastSlope=0.05*(self.caseEast+self.caseWest)
         try:
             self.caseWestSlope=self.yamlFile['westSlope']
         except:
-            self.caseWestSlope=3000
+            self.caseWestSlope=0.05*(self.caseEast+self.caseWest)
         try:
             self.caseNorthFlat=self.yamlFile['northFlat']
         except:
-            self.caseNorthFlat=1000
+            self.caseNorthFlat=0.05*(self.caseNorth + self.caseSouth)
         try:
             self.caseSouthFlat=self.yamlFile['southFlat']
         except:
-            self.caseSouthFlat=1000
+            self.caseSouthFlat=0.05*(self.caseNorth + self.caseSouth)
         try:
             self.caseEastFlat=self.yamlFile['eastFlat']
         except:
-            self.caseEastFlat=1000
+            self.caseEastFlat=0.05*(self.caseEast+self.caseWest)
         try:
             self.caseWestFlat=self.yamlFile['westFlat']
         except:
-            self.caseWestFlat=1000
+            self.caseWestFlat=0.05*(self.caseEast+self.caseWest)
         # Optional
         try:
             self.rans_1d=self.yamlFile["rans1D"]
         except:
-            self.rans_1d=False
+            self.rans_1d=True
+        wind=self.yamlFile["metMastWind"]
+        self.metMastHeight=self.yamlFile["metMastHeight"]
+        self.metMastWind=[wind[0],wind[1]]
+        # Adding some patching 
+        try:
+            self.refTemperature=self.yamlFile["refTemperature"]
+        except:
+            self.refTemperature=300.0
+        try:
+            self.refRoughness=self.yamlFile["refRoughness"]
+        except:
+            self.refRoughness=0.1
 
     def createDomain(self):
         try:
@@ -133,8 +155,8 @@ class amrBackend():
                 eastlon=dataset.bounds[2]-self.caseCenterLon
                 southlat=dataset.bounds[1]-self.caseCenterLat
                 northlat=dataset.bounds[3]-self.caseCenterLat
-                print(dataset.bounds)
-                print(self.caseCenterLon,westlon,eastlon,self.caseCenterLat,southlat,northlat)
+                #print(dataset.bounds)
+                #print(self.caseCenterLon,westlon,eastlon,self.caseCenterLat,southlat,northlat)
                 #exit(-1)
             self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
                                                         self.caseWest,self.caseEast,self.caseSouth,self.caseNorth, \
@@ -171,37 +193,54 @@ class amrBackend():
 
 
     
-    def createAMRFiles(self):
+    def createAMRFiles(self,sweep=False,sweep_angle=30):
         if(self.caseType=="terrain_noprecursor"):
             pass
         else:
             self.amrPrecursorFile=Path(self.caseParent,self.caseName,"precursor","precursor.inp").open("w")
             self.amrPrecursorFile.write("# Generating the precursor file\n")
-        self.createPrecursorFiles()
-        if(self.caseType=='terrain' or self.caseType=="terrain_noprecursor"):
-            self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrain","terrain.inp").open("w")
-            self.amrTerrainFile.write("# Generating the terrain file\n")
-            self.createTerrainFiles("terrain")
-            self.closeAMRFiles()    
-        elif(self.caseType=='terrainTurbine'):
-            self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrainTurbine","terrainTurbine.inp").open("w")
-            self.amrTerrainFile.write("# Generating the terrain file\n")
-            self.createTerrainFiles("terrainTurbine")
-            self.closeAMRFiles()
-            # Turbine files are not properly written
-            self.createTurbineFiles()
-            self.plotTurbines()
+            self.createPrecursorFiles()
+        # Sweep angles for multiple case creation 
+        if(sweep):
+            import shutil
+            angle=0
+            while(angle<360):
+                print("Sweeping:",angle)
+                self.sweep_angle=angle 
+                self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrain","terrain.inp").open("w")
+                self.amrTerrainFile.write("# Generating the terrain file\n")
+                self.createTerrainFiles("terrain")
+                self.closeAMRFiles() 
+                destination=Path(self.caseParent,self.caseName,"terrain_"+str(int(angle)))
+                shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
+                caseTerrain=Path(self.caseParent,self.caseName,"terrain")
+                angle=angle+sweep_angle
+                if(angle<360):
+                    self.caseTerrain=caseTerrain.as_posix()
+                    caseTerrain.mkdir(parents=True,exist_ok=True)
+                    self.yamlFile=yaml.safe_load(self.yamlFilePath.open())
+        else:
+            if(self.caseType=='terrain' or self.caseType=="terrain_noprecursor"):
+                self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrain","terrain.inp").open("w")
+                self.amrTerrainFile.write("# Generating the terrain file\n")
+                self.createTerrainFiles("terrain")
+                self.closeAMRFiles()    
+            elif(self.caseType=='terrainTurbine'):
+                self.amrTerrainFile=Path(self.caseParent,self.caseName,"terrainTurbine","terrainTurbine.inp").open("w")
+                self.amrTerrainFile.write("# Generating the terrain file\n")
+                self.createTerrainFiles("terrainTurbine")
+                self.closeAMRFiles()
+                # Turbine files are not properly written
+                self.createTurbineFiles()
+                self.plotTurbines()
 
     def createPrecursorFiles(self):
-        # Adding some patching 
-        self.refTemperature=self.yamlFile["refTemperature"]
-        self.refRoughness=self.yamlFile["refRoughness"]
-        self.refHeatFlux=self.yamlFile["refHeatflux"] 
+        self.refHeatFlux=0.0
         if(self.caseType=="terrain_noprecursor"):
             return 
         if(self.rans_1d):
             self.createAMR1dSolver()
-        print("Creating precursor")
+        #print("Creating precursor")
         self.createAMRGeometry(self.amrPrecursorFile,1)
         self.createAMRGrid(self.amrPrecursorFile)
         self.createAMRTime(self.amrPrecursorFile)
@@ -215,10 +254,10 @@ class amrBackend():
             self.createAMRSourceTerm(self.amrPrecursorFile) 
         self.createAMRBC(self.amrPrecursorFile)
         self.createAMRTolerance(self.amrPrecursorFile)
-        print(" Done creating precursor")
+        #print(" Done creating precursor")
 
     def createTerrainFiles(self,folder):
-        print("Creating Terrain Files")
+        #print("Creating Terrain Files")
         self.createAMRGeometry(self.amrTerrainFile,-1)
         if(self.rans_1d and self.caseType=="terrain_noprecursor"):
             self.createAMR1dSolver()
@@ -274,7 +313,7 @@ class amrBackend():
         self.ABLHeight=max(self.terrainZMax,2048)
         self.RDLHeight=max(self.terrainZMax,2048)
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
-        print(self.terrainZMax,self.ABLHeight,self.RDLHeight,self.maxZ)
+        #print(self.terrainZMax,self.ABLHeight,self.RDLHeight,self.maxZ)
         target.write("%-50s = %g %g %g \n"%("geometry.prob_lo",minX,minY,minZ))
         target.write("%-50s = %g %g %g \n"%("geometry.prob_hi",maxX,maxY,self.maxZ))
         if(periodic==1):
@@ -292,7 +331,7 @@ class amrBackend():
         nz=self.caseverticalAR*int(self.maxZ/self.caseCellSize)
         while (nz%8 !=0):
             nz=nz+1
-        print("dx,dz",self.caseCellSize,self.maxZ/nz)
+        #print("dx,dz",self.caseCellSize,self.maxZ/nz)
         target.write("# Grid \n")
         target.write("%-50s = %g %g %g\n"%("amr.n_cell",nx,ny,nz))
         #target.write("%-50s = 0\n"%("amr.max_level"))
@@ -370,9 +409,9 @@ class amrBackend():
             target.write("%-50s = terrain_blank terrain_drag \n"%("io.int_outputs"))
 
     def createSolverInfo(self,target,terrain=-1,turbine=-1):
-        self.caseWindspeedX=self.yamlFile['windX']
-        self.caseWindspeedY=self.yamlFile['windY']
-        self.caseWindspeedZ=self.yamlFile['windZ']   
+        # self.caseWindspeedX=self.yamlFile['windX']
+        # self.caseWindspeedY=self.yamlFile['windY']
+        # self.caseWindspeedZ=self.yamlFile['windZ']   
         try:
             wind=self.yamlFile["metMastWind"]
         except:
@@ -439,9 +478,15 @@ class amrBackend():
             target.write("%-50s = -1e30\n"%("Kosovic.refMOL"))
 
     def createAMRABLData(self,target,iomode=-1,fluctuations=1):
-        self.refTemperature=self.yamlFile["refTemperature"]
-        self.refRoughness=self.yamlFile["refRoughness"]
-        self.refHeatFlux=self.yamlFile["refHeatflux"]
+        try:
+            self.refTemperature=self.yamlFile["refTemperature"]
+        except:
+            self.refTemperature=300.0
+        try:
+            self.refRoughness=self.yamlFile["refRoughness"]
+        except:
+            self.refRoughness=0.1
+        self.refHeatFlux=0.0
         target.write("# Atmospheric boundary layer\n")
         if(fluctuations==1 and (not self.turbulence_model=='RANS')):
             UPeriod=int((np.amax(self.terrainX1)-np.amin(self.terrainX1))/200)
@@ -473,9 +518,7 @@ class amrBackend():
             target.write("\n")
         target.write("%-50s = local\n"%("ABL.wall_shear_stress_type"))
         target.write("%-50s = %g\n"%("ABL.surface_temp_flux",self.refHeatFlux))
-        print("Trying to write",self.caseType)
         if(self.caseType=="terrain_noprecursor"):
-            print("Trying to write",self.caseType)
             target.write("%-50s = true\n"%("ABL.horizontal_sponge_temp"))
             target.write("%-50s = true\n"%("ABL.horizontal_sponge_tke"))
         if(iomode==0):
@@ -511,7 +554,8 @@ class amrBackend():
     def createAMRSourceTerm(self,target,sponge=-1,terrain=-1,turbine=-1):
         target.write("# Source\n")
         if((sponge==1 and self.turbulence_model=="RANS") or (self.caseType=="terrain_noprecursor")):
-            forcingterms="WindSpongeForcing ABLMeanBoussinesq BoussinesqBuoyancy  "
+            #forcingterms="WindSpongeForcing ABLMeanBoussinesq BoussinesqBuoyancy  "
+            forcingterms="VelocityFreeAtmosphereForcing ABLMeanBoussinesq BoussinesqBuoyancy  "            
         else:
             forcingterms="ABLMeanBoussinesq BoussinesqBuoyancy RayleighDamping "
         try: 
@@ -525,13 +569,13 @@ class amrBackend():
             self.forcingHeight=self.yamlFile["forcingHeight"]
         except:
             forcingterms=forcingterms+" GeostrophicForcing "
-        try:
-            metMastRegions=self.yamlFile["metMastNames"]
-        except:
-            pass
-        else:
-            forcingterms=forcingterms+" MetMastForcing "
-            target.write('%-50s = "metmast.info"\n'%("ABL.metmast_1dprofile_file"))
+        # try:
+        #     metMastRegions=self.yamlFile["metMastNames"]
+        # except:
+        #     pass
+        # else:
+        #     forcingterms=forcingterms+" MetMastForcing "
+        #     target.write('%-50s = "metmast.info"\n'%("ABL.metmast_1dprofile_file"))
         if(not self.turbulence_model=="RANS"):
             forcingterms=forcingterms+" NonLinearSGSTerm "
         if(terrain==1 or turbine==1):
@@ -548,7 +592,7 @@ class amrBackend():
         if(terrain==1 or turbine==1):
             target.write('%-50s = "terrain.amrwind.new" \n'%("TerrainDrag.terrain_file"))
             if((self.turbulence_model=="RANS" and sponge==1) or (self.caseType=="terrain_noprecursor")):
-                target.write("%-50s = TempSpongeForcing  DragTempForcing\n"%("Temperature.source_terms"))
+                target.write("%-50s = TemperatureFreeAtmosphereForcing  DragTempForcing\n"%("Temperature.source_terms"))
             else:
                 target.write("%-50s = DragTempForcing\n"%("Temperature.source_terms"))
         if(self.caseType=="terrain_noprecursor"):
@@ -556,10 +600,10 @@ class amrBackend():
             target.write("%-50s = 1\n"%("DragForcing.sponge_east"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_north"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_south"))
-            target.write("%-50s = -%g\n"%("DragForcing.sponge_distance_west",self.caseWestFlat-500))
-            target.write("%-50s = %g\n"%("DragForcing.sponge_distance_east",self.caseEastFlat+500))
-            target.write("%-50s = -%g\n"%("DragForcing.sponge_distance_south",self.caseSouthFlat-500))
-            target.write("%-50s = %g\n"%("DragForcing.sponge_distance_north",self.caseNorthFlat+500))
+            target.write("%-50s = -%g\n"%("DragForcing.sponge_distance_west",self.caseWestFlat))
+            target.write("%-50s = %g\n"%("DragForcing.sponge_distance_east",self.caseEastFlat))
+            target.write("%-50s = -%g\n"%("DragForcing.sponge_distance_south",self.caseSouthFlat))
+            target.write("%-50s = %g\n"%("DragForcing.sponge_distance_north",self.caseNorthFlat))
 
         else:
             target.write("%-50s = 0\n"%("DragForcing.sponge_west"))
@@ -681,15 +725,19 @@ class amrBackend():
 
     
     def createAMR1dSolver(self):
-        wind=self.yamlFile["metMastWind"]
-        mol_length=self.yamlFile["molLength"]
-        allowed_error=self.yamlFile["allowedError"]
-        self.metMastHeight=self.yamlFile["metMastHeight"]
-        self.metMastWind=[wind[0],wind[1]]
+        try:
+            mol_length=self.yamlFile["molLength"]
+        except:
+            mol_length=-1e30
+        try:
+            allowed_error=self.yamlFile["allowedError"]
+        except:
+            allowed_error=0.25
         try:
             zheight=self.yamlFile["ransDomainTop"]
         except:
             zheight=self.terrainZMax+self.ABLHeight
+        wind=self.metMastWind
         dz=8.0
         npts=int(zheight/dz)
         num_of_steps=30000
@@ -702,6 +750,16 @@ class amrBackend():
         inv_strength=0
         lapse_rate=0.003
         heat_flux_mode=4
+        # Change the wind if we are sweeping 
+        try:
+            int(self.sweep_angle)
+        except:
+            pass
+        else:
+            windspeed=10.0
+            wind[0]=windspeed*np.cos(self.sweep_angle*np.pi/180)
+            wind[1]=windspeed*np.sin(self.sweep_angle*np.pi/180)
+            print(wind)
         #initial_ug=wind[0]
         #if(self.caseCenterLat>0):
         #    initial_vg=max(wind[0],wind[1])*np.sin(self.caseCenterLat)
@@ -723,13 +781,13 @@ class amrBackend():
         try:
             initial_ug=self.yamlFile["initialUG"]
             initial_vg=self.yamlFile["initialVG"]
-            print("User-Specified:",initial_ug,initial_vg)
+            #print("User-Specified:",initial_ug,initial_vg)
         except:
             M=np.sqrt(wind[0]**2+wind[1]**2)
             wt=4e-3*M
             zi=1000.0
             f=2*7.27e-5*np.sin(self.caseCenterLat*np.pi/180)
-            print(wt/(f*zi))
+            #print(wt/(f*zi))
             if(self.caseCenterLat<10):
                 initial_ug=wind[0]
                 initial_vg=wind[1]
@@ -797,7 +855,6 @@ class amrBackend():
                 if(zvals[i]>2048):
                     tkevalue=tkevals[i]
                     fixValue=True
-                    print("Neutral fixer")
                     break
             for i in range(0,len(zvals)):
                 if(zvals[i]>2048 and fixValue):
@@ -815,7 +872,6 @@ class amrBackend():
                 if(zvals[i]>2048):
                     tkevalue=tkevals[i]
                     fixValue=True
-                    print("Neutral fixer")
                     break
             for i in range(0,len(zvals)):
                 if(zvals[i]>2048 and fixValue):
@@ -834,7 +890,6 @@ class amrBackend():
                 if(zvals[i]>2048):
                     tkevalue=tkevals[i]
                     fixValue=True
-                    print("Neutral fixer")
                     break
             for i in range(0,len(zvals)):
                 if(zvals[i]>2048 and fixValue):
@@ -852,6 +907,8 @@ class amrBackend():
         # Initial Guess of Geostropic Wind 
         # Coarse grid run to identify close wind speed 
         # A good initial guess reduces number of while loop iterations 
+        print("Running 1-D Solver - Coarse Grid ")
+        print("%-15s|%-15s|%-15s|%-15s"%("Geostrophic Wind ","Reference Wind "," CFD Wind"," Error"))
         residualx=100
         residualy=100 
         # Initialize Grid Npts, Height, Roughness Length and Terrain Height for IB 
@@ -895,12 +952,19 @@ class amrBackend():
             uy=amr1D.uy
             met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
             met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
-            print("Met Mast Wind:[%g %g]"%(metMastWind[0],metMastWind[1]))
-            print("Specified Geostrophic Wind: [%g %g]"%(ug[0],ug[1]))
-            print("CFD Met Mast Wind and Error:[%g %g]  [%g %g]"%(met_mast_cfd_ux,met_mast_cfd_uy,met_mast_cfd_ux-metMastWind[0],met_mast_cfd_uy-metMastWind[1]))
+            errx=met_mast_cfd_ux-metMastWind[0]
+            erry=met_mast_cfd_uy-metMastWind[1]
+            print("%-8s %-7s|%-8s %-7s|%-8s %-7s|%-8s %-7s"%(round(ug[0],2),round(ug[1],2), \
+                                                            round(metMastWind[0],2),round(metMastWind[1],2), \
+                                                            round(met_mast_cfd_ux,2),round(met_mast_cfd_uy,2),\
+                                                            round(errx,2),round(erry,2)))
+                                                            
+            #print("Met Mast Wind:[%g %g]"%(metMastWind[0],metMastWind[1]))
+            #print("Specified Geostrophic Wind: [%g %g]"%(ug[0],ug[1]))
+            #print("CFD Met Mast Wind and Error:[%g %g]  [%g %g]"%(met_mast_cfd_ux,met_mast_cfd_uy,met_mast_cfd_ux-metMastWind[0],met_mast_cfd_uy-metMastWind[1]))
             tke=np.interp(metMastHeight,z,amr1D.tke)
             M=np.sqrt(met_mast_cfd_ux**2+met_mast_cfd_uy**2)
-            print("TI:",np.sqrt(2.0/3.0*tke)/M*100)
+            #print("TI:",np.sqrt(2.0/3.0*tke)/M*100)
             residualx=abs(met_mast_cfd_ux-metMastWind[0])
             residualy=abs(met_mast_cfd_uy-metMastWind[1])
             # Reduce only the higher error to  speed-up 
@@ -935,10 +999,10 @@ class amrBackend():
             end = time.time()
         print("Coarse grid time:",end-start)
         z0=roughness_length
-
+        print("Running 1-D Solver - Fine Grid ")
         # Fine Run 
         # A good initial guess reduces number of while loop iterations 
-        print("Fine Run")
+        # print("Fine Run")
         residualx=100
         residualy=100 
         # Initialize Grid Npts, Height, Roughness Length and Terrain Height for IB 
@@ -989,17 +1053,23 @@ class amrBackend():
             uy=amr1D.uy
             met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
             met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
-            print("Met Mast Wind:[%g %g]"%(metMastWind[0],metMastWind[1]))
-            print("Specified Geostrophic Wind: [%g %g]"%(ug[0],ug[1]))
-            print("CFD Met Mast Wind and Error:[%g %g]  [%g %g]"%(met_mast_cfd_ux,met_mast_cfd_uy,met_mast_cfd_ux-metMastWind[0],met_mast_cfd_uy-metMastWind[1]))
+            errx=met_mast_cfd_ux-metMastWind[0]
+            erry=met_mast_cfd_uy-metMastWind[1]
+            print("%-8s %-7s|%-8s %-7s|%-8s %-7s|%-8s %-7s"%(round(ug[0],2),round(ug[1],2), \
+                                                            round(metMastWind[0],2),round(metMastWind[1],2), \
+                                                            round(met_mast_cfd_ux,2),round(met_mast_cfd_uy,2),\
+                                                            round(errx,2),round(erry,2)))
+            # print("Met Mast Wind:[%g %g]"%(metMastWind[0],metMastWind[1]))
+            # print("Specified Geostrophic Wind: [%g %g]"%(ug[0],ug[1]))
+            # print("CFD Met Mast Wind and Error:[%g %g]  [%g %g]"%(met_mast_cfd_ux,met_mast_cfd_uy,met_mast_cfd_ux-metMastWind[0],met_mast_cfd_uy-metMastWind[1]))
             tke=np.interp(metMastHeight,z,amr1D.tke)
             M=np.sqrt(met_mast_cfd_ux**2+met_mast_cfd_uy**2)
-            print("TI:",np.sqrt(2.0/3.0*tke)/M*100)
+            #print("TI:",np.sqrt(2.0/3.0*tke)/M*100)
             residualx=abs(met_mast_cfd_ux-metMastWind[0])
             residualy=abs(met_mast_cfd_uy-metMastWind[1])
             # Reduce only the higher error to  speed-up 
             if(residualx<allowed_error and residualy<allowed_error):
-                print("Coarse grid converged")
+                print("Fine grid converged")
                 pass
             elif(residualx>residualy):
                 if(metMastWind[0]>0):
@@ -1126,8 +1196,8 @@ class amrBackend():
                             minTerrain=self.terrainX3[j]
                         if(self.terrainX3[j]>maxTerrain):
                             maxTerrain=self.terrainX3[j]
-                print("Terrain Hee Haw",minTerrain,maxTerrain)
-                print("MinMax",np.amin(self.terrainX3),np.amax(self.terrainX3))
+                #print("Terrain Hee Haw",minTerrain,maxTerrain)
+                #print("MinMax",np.amin(self.terrainX3),np.amax(self.terrainX3))
                 # target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],box_lo[2]))
                 # target.write("%-50s = %g %g %g \n"%("tagging.f1.box_hi",box_hi[0],box_hi[1],box_hi[2]))
                 target.write("%-50s = %g %g %g \n"%("tagging.f1.box_lo",box_lo[0],box_lo[1],minTerrain+self.caseCellSize/self.caseverticalAR))
@@ -1148,7 +1218,7 @@ class amrBackend():
                     zterrainmax=self.terrainX3[j]
             zstart=min(zterrainmin,zterrainmax)-100
             zlength=abs(zterrainmin-zterrainmax)+refinementMaxz[i]
-            print(zstart,zlength)
+            #print(zstart,zlength)
             taggingstring="tagging."+refinementRegions[i]+".type"
             target.write("%-50s = GeometryRefinement\n"%(taggingstring))
             taggingstring="tagging."+refinementRegions[i]+".shapes"
@@ -1206,6 +1276,7 @@ class amrBackend():
                     return    
                 try:
                     metMastLat=self.yamlFile["metMastLat"]
+                    #print(metMastLat)
                 except:
                     warnings.warn("Missing Latitude values. No refinements written")
                     return        
@@ -1215,15 +1286,21 @@ class amrBackend():
                     self.metMastX[i],self.metMastY[i]=self.srtm.to_xy(metMastLat[i],metMastLon[i])
                     self.metMastX[i]=self.metMastX[i]-self.xref
                     self.metMastY[i]=self.metMastY[i]-self.yref
-                print(self.metMastX,self.metMastY)
+                #print(self.metMastX,self.metMastY)
             try:
                 metMastRadius=self.yamlFile["metMastRadius"]
             except:
-                metMastRadius=500+0*self.metMastX
+                metMastRadius=[]
+                metMastRadius.append(500.0)
+                for i in range(1,len(metMastRadius)):
+                    metMastRadius.append(500.0)
             try:
                 metMastRefinementLevel=self.yamlFile["metMastRefinementLevel"]
-            except:
-                metMastRefinementLevel=2+0*self.metMastX
+            except: 
+                metMastRefinementLevel=[]
+                metMastRefinementLevel.append(3)
+                for i in range(1,len(metMastRefinementLevel)):
+                    metMastRefinementLevel.append(3)
             try:
                 metMastHeight=self.yamlFile["metMastHeight"]
             except:
@@ -1296,9 +1373,10 @@ class amrBackend():
         else:
             self.amrPrecursorFile.write("%-50s = %d\n"%(stringtowrite,0))
         # Write the metmast file 
-        target=Path(self.caseParent,self.caseName,"terrain","metmast.info").open("w")
-        target.write("%g %g %g %g %g 0.0 %g\n"%(self.metMastX[0],self.metMastY[0],self.metMastHeight, \
+        newtarget=Path(self.caseParent,self.caseName,"terrain","metmast.info").open("w")
+        newtarget.write("%g %g %g %g %g 0.0 %g\n"%(self.metMastX[0],self.metMastY[0],self.metMastHeight, \
                                                 self.caseWindspeedX,self.caseWindspeedY,self.refTemperature))
+        newtarget.close()
 
 
 
@@ -1306,7 +1384,7 @@ class amrBackend():
         try:
             writeTerrainSampling=self.yamlFile["writeTerrainSampling"]
         except: 
-            return 
+            writeTerrainSampling=True 
         if(writeTerrainSampling):
             target.write("# postprocessing\n")
             target.write("%-50s = %s \n"%("incflo.post_processing","sampling"))
@@ -1316,7 +1394,7 @@ class amrBackend():
         try:
             metMastLineSampling=self.yamlFile["metMastLineSampling"]
         except:
-            metMastLineSampling=False
+            metMastLineSampling=True
         else:
             if(metMastLineSampling):
                 try:
@@ -1328,7 +1406,10 @@ class amrBackend():
                         target.write(" %s "%(metMastRegions[i]))
         target.write("\n")
         if(writeTerrainSampling):
-            offsets=self.yamlFile["verticalLevels"]
+            try:
+                offsets=self.yamlFile["verticalLevels"]
+            except:
+                offsets=[10,50,100,150,200,250]
             samplingentity="sampling.terrain.type"
             target.write("%-50s = ProbeSampler\n"%(samplingentity))
             samplingentity="sampling.terrain.probe_location_file"
@@ -1372,7 +1453,7 @@ class amrBackend():
             pass
 
     def writeTerrainData(self,folder):
-        print("Writing Terrain Data")
+        #("Writing Terrain Data")
         x1=self.terrainX1.flatten(order='F')
         x2=self.terrainX2.flatten(order='F')
         x3=self.terrainX3.flatten(order='F')  
@@ -1389,7 +1470,7 @@ class amrBackend():
         x1=xterrain.flatten(order='F')
         x2=yterrain.flatten(order='F')
         x3=zterrain.flatten(order='F')
-        print("Shape:",xterrain.shape)
+        #print("Shape:",xterrain.shape)
         # target=Path(self.caseParent,self.caseName,folder,"terrain.amrwind.new").open("w")
         # target.write("%d\n"%(xterrain.shape[0]))
         # target.write("%d\n"%(yterrain.shape[0]))
@@ -1457,7 +1538,7 @@ class amrBackend():
         #     target.write("%g %g %g\n"%(smoothData.points[i,0],smoothData.points[i,1],smoothData.points[i,2]))
         # target.close()
         # Temporary Roughness Data 
-        print("Writing Roughness Data")
+        #print("Writing Roughness Data")
         # self.smoothData=smoothData
         # self.roughnessData=0*smoothData.points[:,0]
         # import geopandas as gpd
@@ -1907,4 +1988,10 @@ class amrBackend():
 from sys import argv 
 amrRef=amrBackend(argv[1])
 amrRef.createDomain()
-amrRef.createAMRFiles()
+try:
+    sweep_dir=argv[2]
+except:
+    amrRef.createAMRFiles()
+else:
+    sweep=True
+    amrRef.createAMRFiles(sweep,float(sweep_dir))

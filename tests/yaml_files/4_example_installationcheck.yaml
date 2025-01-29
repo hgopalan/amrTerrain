@@ -1,0 +1,26 @@
+# Setup for performing RANS simulations in AMR-Wind with terrain and no precursor simulations  
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/example_check"
+caseFolder: "example_check"
+centerLat: 36.38
+centerLon: -97.40
+farmRadius: 5000 
+westSlope: 500
+eastSlope: 500
+northSlope: 500 
+southSlope: 500 
+westFlat: 500
+eastFlat: 500
+northFlat: 500 
+southFlat: 500 
+metMastLatLon: True
+metMastNames: ["mast1"]
+metMastLat: [36.38]
+metMastLon: [-97.40]
+metMastWind: [7.071,7.071]
+metMastHeight: 100
+refineTerrain: false 
+
+
+
+
+

@@ -114,7 +114,7 @@ class amr1dSolver:
             self.zlist=[metMastHeight]
             for i in range(0,len(self.zlist)):
                 self.zloc.append(np.abs(self.z - self.zlist[i]).argmin())
-                print("Index:",self.zloc)
+                #("Index:",self.zloc)
             self.uxlist=[metMastX]
             self.vxlist=[metmastY]
         self.dt=0.8*(self.z[1]-self.z[0])/np.sqrt(self.ug**2+self.vg**2)
@@ -409,8 +409,8 @@ class amr1dSolver:
         errtke=abs(np.sum(self.tke)-self.errtke)
         errnut=abs(np.sum(self.nut)-self.errnut)
         errtemp=abs(np.sum(self.temperature)-self.errtemp)
-        if(self.counter%5000==0):
-            print("Residual:%g %g %g %g %g %g"%(self.start_time,errvelx,errvely,errtemp,errtke,errnut))
+        #if(self.counter%5000==0):
+        #    print("Residual:%g %g %g %g %g %g"%(self.start_time,errvelx,errvely,errtemp,errtke,errnut))
         if(errvelx<self.err and errvely<self.err):
             self.converge=True
         self.errvelx=np.sum(self.ux)

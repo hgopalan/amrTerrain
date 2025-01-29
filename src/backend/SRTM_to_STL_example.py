@@ -90,7 +90,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     vmin,vmax = 1500,2500
     if(refloc[0]<0):
         yref=yref-10000000
-    print(xref,yref)
+    #print(xref,yref)
     # print(np.amax(x),np.amin(x),np.amax(x)-np.amin(x))
     # print(np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
     # #y=y+yref-0.5*(np.amax(y)+np.amin(y))
