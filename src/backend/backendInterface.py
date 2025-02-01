@@ -1292,14 +1292,14 @@ class amrBackend():
             except:
                 metMastRadius=[]
                 metMastRadius.append(500.0)
-                for i in range(1,len(metMastRadius)):
+                for i in range(1,len(metMastRegions)):
                     metMastRadius.append(500.0)
             try:
                 metMastRefinementLevel=self.yamlFile["metMastRefinementLevel"]
             except: 
                 metMastRefinementLevel=[]
                 metMastRefinementLevel.append(3)
-                for i in range(1,len(metMastRefinementLevel)):
+                for i in range(1,len(metMastRegions)):
                     metMastRefinementLevel.append(3)
             try:
                 metMastHeight=self.yamlFile["metMastHeight"]
