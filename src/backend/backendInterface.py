@@ -238,10 +238,11 @@ class amrBackend():
         self.refHeatFlux=0.0
         if(self.caseType=="terrain_noprecursor"):
             return 
-        if(self.rans_1d):
-            self.createAMR1dSolver()
         #print("Creating precursor")
         self.createAMRGeometry(self.amrPrecursorFile,1)
+        # Variables missing
+        if(self.rans_1d):
+            self.createAMR1dSolver()
         self.createAMRGrid(self.amrPrecursorFile)
         self.createAMRTime(self.amrPrecursorFile)
         self.createSolverInfo(self.amrPrecursorFile)
@@ -385,9 +386,9 @@ class amrBackend():
         try: 
             if(target==self.amrPrecursorFile):
                 target.write("%-50s = 1\n"%("time.fixed_dt"))
+            else:
+                target.write("%-50s = -1\n"%("time.fixed_dt"))
         except:
-            target.write("%-50s = -1\n"%("time.fixed_dt"))
-        else:
             target.write("%-50s = -1\n"%("time.fixed_dt"))
         if(self.turbulence_model=="RANS"):
             target.write("%-50s = 0.5\n"%("time.cfl"))  
