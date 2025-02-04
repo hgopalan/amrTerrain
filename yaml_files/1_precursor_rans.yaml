@@ -1,0 +1,20 @@
+# Setup for performing precursor RANS simulations in AMR-Wind 
+# This is the minimum setup required 
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/tutorials/"
+caseFolder: "1_precursor_rans"
+caseType: "precursor"
+centerLat: 36.38
+centerLon: -97.40
+farmRadius: 25000 
+metMastLatLon: True
+metMastNames: ["mast1"]
+metMastLat: [36.38]
+metMastLon: [-97.40]
+metMastWind: [7.071,7.071]
+metMastHeight: 100
+
+
+
+
+
+

@@ -15,44 +15,30 @@ class amrBackend():
     def __init__(self,yamlFile):
         self.yamlFilePath = Path(yamlFile)
         self.yamlFile=yaml.safe_load(self.yamlFilePath.open())
-        self.caseCellSize=128  
+        self.caseCellSize=96  
         self.caseverticalAR=4
         self.turbulence_model='RANS'
         self.case_end_time=7200
         self.plotOutput=1800
         self.restartOutput=1800
+        # Rearranging YAML file reading 
+        self.readVariables()
         self.createCase()
-
-    def createCase(self):
+        self.setCaseType()
+    
+    def readVariables(self):
+        # 1 - Folders 
         self.caseParent=self.yamlFile['caseParent']
         self.caseName=self.yamlFile['caseFolder']
+        # 2 - Case Type 
         try:
             self.caseType=self.yamlFile['caseType']
         except:
             self.caseType="terrain_noprecursor"
-        try:
-            self.caseInitial=self.yamlFile['caseInitial']
-        except:
-            self.caseInitial='amr'
-        caseDir=Path(self.caseParent,self.caseName)
-        self.caseDir=caseDir.as_posix()
-        caseDir.mkdir(parents=True,exist_ok=True)
-        if(self.caseType=="terrain_noprecursor"):
-            pass
-        else:
-            casePrecursor=Path(self.caseParent,self.caseName,"precursor")
-            self.casePrecursor=casePrecursor.as_posix()
-            casePrecursor.mkdir(parents=True,exist_ok=True)
-        if(self.caseType=="terrain" or self.caseType=="terrain_noprecursor"):
-            caseTerrain=Path(self.caseParent,self.caseName,"terrain")
-            self.caseTerrain=caseTerrain.as_posix()
-            caseTerrain.mkdir(parents=True,exist_ok=True)
-        elif(self.caseType=="terrainTurbine"):
-            caseTerrain=Path(self.caseParent,self.caseName,"terrainTurbine")
-            self.caseTerrain=caseTerrain.as_posix()
-            caseTerrain.mkdir(parents=True,exist_ok=True)  
+        # 3 - Farm (even for precursor)
         self.caseCenterLat=self.yamlFile["centerLat"]
-        self.caseCenterLon=self.yamlFile["centerLon"]  
+        self.caseCenterLon=self.yamlFile["centerLon"]
+        # Method 1 - Assuming a circular farm but amr-wind uses rectangular grid so using inscribed circle 
         try:
             farmRadius=self.yamlFile['farmRadius']
             self.caseNorth=farmRadius
@@ -60,27 +46,19 @@ class amrBackend():
             self.caseEast=farmRadius
             self.caseWest=farmRadius
         except:
+            # Explicitly setting size of farms. Useful when the farm is longer in one direction 
             self.caseNorth=self.yamlFile['north']
             self.caseSouth=self.yamlFile['south']
             self.caseEast=self.yamlFile['east']
-            self.caseWest=self.yamlFile['west']
+            self.caseWest=self.yamlFile['west']  
+        # Currently a dummy variable. Will be used with WRF data 
         try:
             self.refHeight=self.yamlFile["refHeight"]
         except:
             self.refHeight=2184
-        # Reading optional variables 
-        try:
-            self.caseCellSize=self.yamlFile['cellSize']
-        except:
-            self.caseCellSize=128.0
-        try:
-            self.turbulence_model=self.yamlFile['turbulenceModel']
-        except:
-            self.turbulence_model='RANS'
-        try:
-            self.caseverticalAR=self.yamlFile['verticalAR']
-        except:
-            self.caseverticalAR=4
+        # 4 - Define Fringe Regions 
+        # Slopes from the terrain to flat surface at boundaries. 
+        # Default value of 5% is used if not specified 
         try:
             self.caseNorthSlope=self.yamlFile['northSlope']
         except:
@@ -97,6 +75,8 @@ class amrBackend():
             self.caseWestSlope=self.yamlFile['westSlope']
         except:
             self.caseWestSlope=0.05*(self.caseEast+self.caseWest)
+        # Length of the flat region to apply the forcing and fringe boundary conditions 
+        # Default value of 5% is used if not specified 
         try:
             self.caseNorthFlat=self.yamlFile['northFlat']
         except:
@@ -113,15 +93,28 @@ class amrBackend():
             self.caseWestFlat=self.yamlFile['westFlat']
         except:
             self.caseWestFlat=0.05*(self.caseEast+self.caseWest)
-        # Optional
+        # 5 Define Mesh Sizing 
+        try:
+            self.caseCellSize=self.yamlFile['cellSize']
+        except:
+            self.caseCellSize=128.0
+        try:
+            self.caseverticalAR=self.yamlFile['verticalAR']
+        except:
+            self.caseverticalAR=4
+        # 6 Define Turbulence Model 
+        try:
+            self.turbulence_model=self.yamlFile['turbulenceModel']
+        except:
+            self.turbulence_model='RANS'
         try:
             self.rans_1d=self.yamlFile["rans1D"]
+            # 1-D solver is mandatory for the RANS model while optional for LES 
+            if(self.turbulence_model=='RANS'):
+                self.rans_1d=True 
         except:
             self.rans_1d=True
-        wind=self.yamlFile["metMastWind"]
-        self.metMastHeight=self.yamlFile["metMastHeight"]
-        self.metMastWind=[wind[0],wind[1]]
-        # Adding some patching 
+        # 7 Define Physics 
         try:
             self.refTemperature=self.yamlFile["refTemperature"]
         except:
@@ -130,6 +123,77 @@ class amrBackend():
             self.refRoughness=self.yamlFile["refRoughness"]
         except:
             self.refRoughness=0.1
+        try:
+            wind=self.yamlFile["metMastWind"]
+            self.metMastHeight=self.yamlFile["metMastHeight"]
+            self.metMastWind=[wind[0],wind[1]]
+        except:
+            # Set defaults if not specified 
+            self.metMastWind=[10,0]
+            self.metMastHeight=100 
+        # 8 Read if we are doing AEP 
+        try:
+            self.sweep_angle_increment=self.yamlFile["sweepAngle"]
+        except:
+            self.setSweep=False 
+        else:
+            self.setSweep=True 
+        # 9 Time Stepping 
+        try:
+            self.timeMethod=self.yamlFile['timeMethod']
+        except:
+            self.timeMethod="end_time"
+        if(self.timeMethod=="step"):
+            self.timeSteps=self.yamlFile["numOfSteps"]
+        else:
+            try:
+                self.case_end_time=self.yamlFile["endTime"]
+            except:
+                pass
+        try:
+            self.plotOutput=self.yamlFile['plotOutput']
+        except:
+            pass
+        # 10 - Special FF handling 
+        try:
+            self.fastBoxes=self.yamlFile['fastBoxes']      
+        except:
+            self.fastBoxes=False
+        # Met Mast Driving 
+        try:
+            self.metmast_horizontal_radius=self.yamlFile["metmast_horizontal_radius"]
+        except:
+            self.metmast_horizontal_radius=500.0
+        try:
+            self.metmast_vertical_radius=self.yamlFile["metmast_vertical_radius"]
+        except:
+            self.metmast_vertical_radius=5.0
+        try:
+            self.metmast_damping_radius=self.yamlFile["metmast_damping_radius"]
+        except:
+            self.metmast_damping_radius=100.0
+
+    def createCase(self):
+        caseDir=Path(self.caseParent,self.caseName)
+        self.caseDir=caseDir.as_posix()
+        caseDir.mkdir(parents=True,exist_ok=True)
+
+    def setCaseType(self):
+        if(self.caseType=="terrain_noprecursor"):
+            pass
+        else:
+            casePrecursor=Path(self.caseParent,self.caseName,"precursor")
+            self.casePrecursor=casePrecursor.as_posix()
+            casePrecursor.mkdir(parents=True,exist_ok=True)
+        if(self.caseType=="terrain" or self.caseType=="terrain_noprecursor"):
+            caseTerrain=Path(self.caseParent,self.caseName,"terrain")
+            self.caseTerrain=caseTerrain.as_posix()
+            caseTerrain.mkdir(parents=True,exist_ok=True)
+        elif(self.caseType=="terrainTurbine"):
+            caseTerrain=Path(self.caseParent,self.caseName,"terrainTurbine")
+            self.caseTerrain=caseTerrain.as_posix()
+            caseTerrain.mkdir(parents=True,exist_ok=True)  
+    
 
     def createDomain(self):
         try:
@@ -155,9 +219,6 @@ class amrBackend():
                 eastlon=dataset.bounds[2]-self.caseCenterLon
                 southlat=dataset.bounds[1]-self.caseCenterLat
                 northlat=dataset.bounds[3]-self.caseCenterLat
-                #print(dataset.bounds)
-                #print(self.caseCenterLon,westlon,eastlon,self.caseCenterLat,southlat,northlat)
-                #exit(-1)
             self.xref,self.yref,self.zRef,self.srtm=converter.SRTM_Converter(Path(self.caseParent,self.caseName).as_posix(),self.caseCenterLat,self.caseCenterLon,self.refHeight, \
                                                         self.caseWest,self.caseEast,self.caseSouth,self.caseNorth, \
                                                         self.caseWestSlope,self.caseEastSlope,self.caseSouthSlope,self.caseNorthSlope, \
@@ -169,7 +230,6 @@ class amrBackend():
             self.xref=0
             self.yref=0
             self.zRef=0
-        #stlFile=Path(self.caseParent,self.caseName,"terrain.stl").as_posix()
         stlFile=Path(self.caseParent,self.caseName,"terrain.vtk").as_posix()
         import pyvista as pv 
         mesh=pv.read(stlFile)
@@ -177,23 +237,15 @@ class amrBackend():
         x2=mesh.points[:,1]
         x3=mesh.points[:,2]
         for i in range(0,len(x3)):
+            # Water measurements can go negative 
             x3[i]=max(x3[i],0.0)
         self.terrainX1=x1[:]
         self.terrainX2=x2[:]
         self.terrainX3=x3[:]
         if(not self.write_stl):
             Path(self.caseParent,self.caseName,"terrain.vtk").unlink()
-        # else:
-        #     print("Writing curvature")
-        #     mesh["curvature"]=mesh.curvature()
-        #     mesh["terrainHeight"]=x3
-        #     print(mesh["terrainHeight"])
-        #     Path(self.caseParent,self.caseName,"terrain.vtk").unlink()
-        #     mesh.save(stlFile)
-
-
     
-    def createAMRFiles(self,sweep=False,sweep_angle=30):
+    def createAMRFiles(self):
         if(self.caseType=="terrain_noprecursor"):
             pass
         else:
@@ -201,7 +253,7 @@ class amrBackend():
             self.amrPrecursorFile.write("# Generating the precursor file\n")
             self.createPrecursorFiles()
         # Sweep angles for multiple case creation 
-        if(sweep):
+        if(self.setSweep):
             import shutil
             angle=0
             while(angle<360):
@@ -214,7 +266,7 @@ class amrBackend():
                 destination=Path(self.caseParent,self.caseName,"terrain_"+str(int(angle)))
                 shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
                 caseTerrain=Path(self.caseParent,self.caseName,"terrain")
-                angle=angle+sweep_angle
+                angle=angle+self.sweep_angle_increment
                 if(angle<360):
                     self.caseTerrain=caseTerrain.as_posix()
                     caseTerrain.mkdir(parents=True,exist_ok=True)
@@ -306,11 +358,6 @@ class amrBackend():
             self.terrainZMax=ranges[idx]
         else:
             self.terrainZMax=ranges[idx+1]
-        # Add 1 km for ABL and 2 km for Rayleigh
-        # self.ABLHeight=2048
-        # self.RDLHeight=2048
-        # if(self.terrainZMax>self.ABLHeight):
-        #     print("Not enough blockage")
         self.ABLHeight=max(self.terrainZMax,2048)
         self.RDLHeight=max(self.terrainZMax,2048)
         self.maxZ=self.terrainZMax+self.ABLHeight+self.RDLHeight
@@ -362,21 +409,6 @@ class amrBackend():
                     self.case_end_time=7205
                 self.plotOutput=1800
                 self.restartOutput=1800
-        try:
-            self.timeMethod=self.yamlFile['timeMethod']
-        except:
-            self.timeMethod="end_time"
-        if(self.timeMethod=="step"):
-            self.timeSteps=self.yamlFile["numOfSteps"]
-        else:
-            try:
-                self.case_end_time=self.yamlFile["endTime"]
-            except:
-                pass
-        try:
-            self.plotOutput=self.yamlFile['plotOutput']
-        except:
-            pass
         if(self.timeMethod=="step"):
             target.write("%-50s = -1\n"%("time.stop_time"))
             target.write("%-50s = %g\n"%("time.max_step",self.timeSteps))
@@ -410,21 +442,9 @@ class amrBackend():
             target.write("%-50s = terrain_blank terrain_drag \n"%("io.int_outputs"))
 
     def createSolverInfo(self,target,terrain=-1,turbine=-1):
-        # self.caseWindspeedX=self.yamlFile['windX']
-        # self.caseWindspeedY=self.yamlFile['windY']
-        # self.caseWindspeedZ=self.yamlFile['windZ']   
-        try:
-            wind=self.yamlFile["metMastWind"]
-        except:
-            pass
-        else:
-            self.caseWindspeedX=wind[0]
-            self.caseWindspeedY=wind[1]
-            self.caseWindspeedZ=0.0
-        try:
-            self.fastBoxes=self.yamlFile['fastBoxes']      
-        except:
-            self.fastBoxes=False
+        self.caseWindspeedX=self.metMastWind[0]
+        self.caseWindspeedY=self.metMastWind[1]
+        self.caseWindspeedZ=0.0
         try:
             self.caseWindspeedX=self.geostropicX
         except:
@@ -479,14 +499,6 @@ class amrBackend():
             target.write("%-50s = -1e30\n"%("Kosovic.refMOL"))
 
     def createAMRABLData(self,target,iomode=-1,fluctuations=1):
-        try:
-            self.refTemperature=self.yamlFile["refTemperature"]
-        except:
-            self.refTemperature=300.0
-        try:
-            self.refRoughness=self.yamlFile["refRoughness"]
-        except:
-            self.refRoughness=0.1
         self.refHeatFlux=0.0
         target.write("# Atmospheric boundary layer\n")
         if(fluctuations==1 and (not self.turbulence_model=='RANS')):
@@ -624,21 +636,9 @@ class amrBackend():
         target.write("%-50s = %g\n"%("RayleighDamping.length_sloped_damping",512))
         target.write("%-50s = %g\n"%("RayleighDamping.length_complete_damping",self.maxZ-startRayleigh-512))
         target.write("%-50s = 20.0\n"%("RayleighDamping.time_scale"))     
-        try:
-            metmast_horizontal_radius=self.yamlFile["metmast_horizontal_radius"]
-        except:
-            metmast_horizontal_radius=500.0
-        try:
-            metmast_vertical_radius=self.yamlFile["metmast_vertical_radius"]
-        except:
-            metmast_vertical_radius=5.0
-        try:
-            metmast_damping_radius=self.yamlFile["metmast_damping_radius"]
-        except:
-            metmast_damping_radius=100.0
-        target.write("%-50s = %g\n"%("ABL.metmast_horizontal_radius",metmast_horizontal_radius))
-        target.write("%-50s = %g\n"%("ABL.metmast_vertical_radius",metmast_vertical_radius))
-        target.write("%-50s = %g\n"%("ABL.metmast_damping_radius",metmast_damping_radius))
+        target.write("%-50s = %g\n"%("ABL.metmast_horizontal_radius",self.metmast_horizontal_radius))
+        target.write("%-50s = %g\n"%("ABL.metmast_vertical_radius",self.metmast_vertical_radius))
+        target.write("%-50s = %g\n"%("ABL.metmast_damping_radius",self.metmast_damping_radius))
 
     def createAMRBC(self,target,inflowOutflow=-1):
         target.write("# BC \n")
@@ -1600,14 +1600,14 @@ class amrBackend():
 
 
     def writeRestart(self,target):
-            if(self.caseType=="terrain_noprecursor"):
-                pass
+        if(self.caseType=="terrain_noprecursor"):
+            pass
+        else:
+            target.write("#io \n")
+            if(not self.turbulence_model=="RANS"):
+                target.write('%-50s = "../precursor/chk03600"\n'%("io.restart_file"))
             else:
-                target.write("#io \n")
-                if(not self.turbulence_model=="RANS"):
-                    target.write('%-50s = "../precursor/chk03600"\n'%("io.restart_file"))
-                else:
-                    target.write('%-50s = "../precursor/chk01200"\n'%("io.restart_file"))
+                target.write('%-50s = "../precursor/chk01200"\n'%("io.restart_file"))
 
     def createTurbineFiles(self):
         print("Creating Turbines")
@@ -1989,10 +1989,5 @@ class amrBackend():
 from sys import argv 
 amrRef=amrBackend(argv[1])
 amrRef.createDomain()
-try:
-    sweep_dir=argv[2]
-except:
-    amrRef.createAMRFiles()
-else:
-    sweep=True
-    amrRef.createAMRFiles(sweep,float(sweep_dir))
+amrRef.createAMRFiles()
+
