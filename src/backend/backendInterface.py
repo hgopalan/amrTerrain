@@ -1387,10 +1387,17 @@ class amrBackend():
         except: 
             writeTerrainSampling=True 
         if(writeTerrainSampling):
+            # Write a different sampling file for each level since native processing is messy 
+            try:
+                offsets=self.yamlFile["verticalLevels"]
+            except:
+                offsets=[10,50,100,150,200,250]
             target.write("# postprocessing\n")
-            target.write("%-50s = %s \n"%("incflo.post_processing","sampling"))
-            target.write("%-50s = velocity temperature \n"%("sampling.fields"))
-            target.write("%-50s = %s "%("sampling.labels","terrain"))
+            for i in range(0,len(offsets)):
+                if(i==0):
+                    target.write("%-50s = %s "%("incflo.post_processing","terrain"+str(offsets[i])))
+                else:
+                    target.write(" %s "%("terrain"+str(offsets[i])))
         metMastRegions=[]
         try:
             metMastLineSampling=self.yamlFile["metMastLineSampling"]
@@ -1407,21 +1414,19 @@ class amrBackend():
                         target.write(" %s "%(metMastRegions[i]))
         target.write("\n")
         if(writeTerrainSampling):
-            try:
-                offsets=self.yamlFile["verticalLevels"]
-            except:
-                offsets=[10,50,100,150,200,250]
-            samplingentity="sampling.terrain.type"
-            target.write("%-50s = ProbeSampler\n"%(samplingentity))
-            samplingentity="sampling.terrain.probe_location_file"
-            target.write("%-50s = %s\n"%(samplingentity,'"terrain.csv"'))
-            samplingentity="sampling.terrain.offset_vector"
-            target.write("%-50s = 0 0 1\n"%(samplingentity))
-            samplingentity="sampling.terrain.offsets"
-            target.write("%-50s ="%(samplingentity))
-            for values in offsets:
-                target.write(" %g "%(values))
-            target.write("\n")
+            for levels in offsets:
+                target.write("%-50s = velocity temperature \n"%("terrain"+str(levels)+".fields"))
+                target.write('%-50s = "native"\n'%("terrain"+str(levels)+".output_format"))
+                target.write("%-50s = 600\n"%("terrain"+str(levels)+".output_frequency"))
+                target.write("%-50s = %s \n"%("terrain"+str(levels)+".labels","terrain"+str(levels)))
+                samplingentity="terrain"+str(levels)+".terrain"+str(levels)+".type"
+                target.write("%-50s = ProbeSampler\n"%(samplingentity))
+                samplingentity="terrain"+str(levels)+".terrain"+str(levels)+".probe_location_file"
+                target.write("%-50s = %s\n"%(samplingentity,'"terrain.csv"'))
+                samplingentity="terrain"+str(levels)+".terrain"+str(levels)+".offset_vector"
+                target.write("%-50s = 0 0 1\n"%(samplingentity))
+                samplingentity="terrain"+str(levels)+".terrain"+str(levels)+".offsets"
+                target.write("%-50s = %g \n"%(samplingentity,levels))
         if(metMastLineSampling and len(metMastRegions)>0):
             for i in range(0,len(metMastRegions)):
                 samplingentity="sampling."+str(metMastRegions[i])+".type"
@@ -1518,7 +1523,20 @@ class amrBackend():
         x2=yterrain.flatten(order='F')
         x3=zterrain.flatten(order='F')
         target=Path(self.caseParent,self.caseName,folder,"terrain.csv").open("w")
-        target.write("%d \n"%(len(x1)))
+        metMastLat=self.yamlFile["metMastLat"]
+        metMastLon=self.yamlFile["metMastLon"]
+        target.write("%d \n"%(len(x1)+len(metMastLat)))
+        for i in range(0,len(metMastLat)):
+            tempx,tempy=self.srtm.to_xy(metMastLat[i],metMastLon[i])
+            tempx-=self.xref
+            tempy-=self.yref
+            error=10000 
+            for j in range(0,len(self.terrainX1)):
+                residual=np.sqrt((self.terrainX1[j]-tempx)**2+(self.terrainX2[j]-tempy)**2)
+                if(residual<error):
+                    error=residual
+                    zterrainmin=self.terrainX3[j]
+            target.write("%g %g %g\n"%(tempx,tempy,zterrainmin))
         for i in range(0,len(x1)):
              target.write("%g %g %g\n"%(x1[i],x2[i],x3[i]))
         target.close()
