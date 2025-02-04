@@ -1,4 +1,4 @@
-# amrGUI
+# amrTerrain
 This python utility provides a workflow to create input files for immersed forcing terrain simulation in AMR-Wind. It can also be adopted for ERF in future. 
 
 ## DEM Files 
