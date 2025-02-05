@@ -97,7 +97,7 @@ class amrBackend():
         try:
             self.caseCellSize=self.yamlFile['cellSize']
         except:
-            self.caseCellSize=128.0
+            self.caseCellSize=96.0
         try:
             self.caseverticalAR=self.yamlFile['verticalAR']
         except:
@@ -1540,6 +1540,7 @@ class amrBackend():
         for i in range(0,len(x1)):
              target.write("%g %g %g\n"%(x1[i],x2[i],x3[i]))
         target.close()
+        
         #xterrain,yterrain=np.meshgrid(x,y)
         # for i in range(0,xterrain.shape[0]):
         #     for j in range(0,xterrain.shape[1]):
