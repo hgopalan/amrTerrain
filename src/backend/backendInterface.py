@@ -264,7 +264,11 @@ class amrBackend():
                 self.createTerrainFiles("terrain")
                 self.closeAMRFiles() 
                 destination=Path(self.caseParent,self.caseName,"terrain_"+str(int(angle)))
-                shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
+                try:
+                    shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
+                except:
+                    shutil.rmtree(destination)
+                    shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
                 caseTerrain=Path(self.caseParent,self.caseName,"terrain")
                 angle=angle+self.sweep_angle_increment
                 if(angle<360):
@@ -1377,6 +1381,12 @@ class amrBackend():
         newtarget=Path(self.caseParent,self.caseName,"terrain","metmast.info").open("w")
         newtarget.write("%g %g %g %g %g 0.0 %g\n"%(self.metMastX[0],self.metMastY[0],self.metMastHeight, \
                                                 self.caseWindspeedX,self.caseWindspeedY,self.refTemperature))
+        newtarget.close()
+        # Write for AEP
+        newtarget=Path(self.caseParent,self.caseName,"utm.info").open("w")
+        for i in range (0,len(metMastRegions)):
+            newtarget.write("MetMast%g,%g,%g,%g\n"%(i,self.metMastX[i],self.metMastY[i],self.metMastHeight))
+        newtarget.write("utmreference,%g,%g,0\n"%(self.xref,self.yref))
         newtarget.close()
 
 
