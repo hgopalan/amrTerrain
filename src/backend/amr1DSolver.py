@@ -86,7 +86,10 @@ class amr1dSolver:
     def reinitialize_windspeed(self,ux,uy):
         self.ux=ux
         self.uy=uy
-
+    
+    def qh(self):
+        return self.Qh
+    
     def initialize_coriolis(self,lat):
         omega=7.292115e-5
         self.coriolis=2*omega*np.sin(lat*np.pi/180)
@@ -395,6 +398,10 @@ class amr1dSolver:
             if(Rib[i]>Ric):
                 zi=self.z[i]
                 break
+        print("Summary")
+        print("MOL:",self.mo_length)
+        print("Heat Flux:",self.Qh)
+        print(self.temperature[self.lower],self.temperature[self.lower+1])
 
     def compute_average(self):
         self.umean+=self.ux

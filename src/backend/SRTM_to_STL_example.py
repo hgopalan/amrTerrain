@@ -95,7 +95,6 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     vmin,vmax = 1500,2500
     if(refloc[0]<0):
         yref=yref-10000000
-    #print(xref,yref)
     # print(np.amax(x),np.amin(x),np.amax(x)-np.amin(x))
     # print(np.amax(y),np.amin(y),np.amax(y)-np.amin(y))
     # #y=y+yref-0.5*(np.amax(y)+np.amin(y))
@@ -389,7 +388,7 @@ def SRTM_Converter(outputDir,refLat,refLon,refHeight,left,right,bottom,top, \
     # surf.save(stlout, mode=mesh.stl.ASCII) # if ASCII STL is needed
     #print('Saved',stlout)
     #print(zblend[0,0])
-    return xref,yref,zTerrainRef,srtm
+    return xref,yref,zTerrainRef,srtm,srtm.zone_number
 
 
 

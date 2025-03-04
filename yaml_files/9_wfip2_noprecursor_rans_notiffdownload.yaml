@@ -1,0 +1,24 @@
+# Setup for performing terrain RANS simulations in AMR-Wind without precursor 
+# This is the minimum setup required 
+caseParent: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/tutorials/"
+caseFolder: "9_wfip2_noprecursor_rans_notiffdownload"
+centerLat: 45.63374
+centerLon: -120.66047
+farmRadius: 25000 
+metMastLatLon: True
+metMastNames: ["mast1"]
+metMastLat: [45.63374]
+metMastLon: [-120.66047]
+metMastWind: [7.071,7.071]
+metMastHeight: 100
+roiLat: [45.53,45.73]
+roiLon: [-120.76,-120.56]
+metMastLineSampling: True 
+useTiff: "/Users/hgopalan/Documents/P101_AMR-Wind/Data/tempGUI/tutorials/5_terrain_noprecursor_rans_nodownload/wfip_xm25000to25000_ym25000to25000_blendFlat3N3S3E3W_ff2500.0.tif"
+ 
+
+
+
+
+
+
