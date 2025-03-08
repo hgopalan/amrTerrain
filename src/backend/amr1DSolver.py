@@ -398,10 +398,10 @@ class amr1dSolver:
             if(Rib[i]>Ric):
                 zi=self.z[i]
                 break
-        print("Summary")
-        print("MOL:",self.mo_length)
-        print("Heat Flux:",self.Qh)
-        print(self.temperature[self.lower],self.temperature[self.lower+1])
+        #print("Summary")
+        #print("MOL:",self.mo_length)
+        #print("Heat Flux:",self.Qh)
+        #print(self.temperature[self.lower],self.temperature[self.lower+1])
 
     def compute_average(self):
         self.umean+=self.ux

@@ -125,14 +125,17 @@ class amrBackend():
             self.refRoughness=float(self.yamlFile["refRoughness"])
         except:
             self.refRoughness=0.1
+        # When we are sweeping roughness changes 
         try:
             wind=self.yamlFile["metMastWind"]
             self.metMastHeight=self.yamlFile["metMastHeight"]
             self.metMastWind=[wind[0],wind[1]]
+            #print(self.metMastHeight)
+            #print(self.metMastWind)
         except:
             # Set defaults if not specified 
             self.metMastWind=[10,0]
-            self.metMastHeight=100 
+            self.metMastHeight=[100] 
         # 8 Read if we are doing AEP 
         try:
             self.sweep_angle_increment=self.yamlFile["sweepAngle"]
@@ -250,6 +253,12 @@ class amrBackend():
         self.terrainX3=x3[:]
         if(not self.write_stl):
             Path(self.caseParent,self.caseName,"terrain.vtk").unlink()
+        try:
+            roughnessFile=self.yamlFile["roughnessFile"]
+        except:
+            pass
+        else:
+            self.makeRoughness()
     
     def createAMRFiles(self):
         if(self.caseType=="terrain_noprecursor"):
@@ -261,6 +270,8 @@ class amrBackend():
         # Sweep angles for multiple case creation 
         if(self.setSweep):
             import shutil
+            reference_angle=[0,20,40,60,80,100,120,140,160,180,200,220,240,260,280,300,320,340]
+            true_angle=[270,250,230,210,190,170,150,130,110,90,70,50,30,10,350,330,310,290]
             angle=0
             while(angle<360):
                 print("Sweeping:",angle)
@@ -269,7 +280,9 @@ class amrBackend():
                 self.amrTerrainFile.write("# Generating the terrain file\n")
                 self.createTerrainFiles("terrain")
                 self.closeAMRFiles() 
-                destination=Path(self.caseParent,self.caseName,"terrain_"+str(int(angle)))
+                index=np.where(np.array(reference_angle)==angle)
+                #print(true_angle[index[0][0]])
+                destination=Path(self.caseParent,self.caseName,"terrain_"+str(int(true_angle[index[0][0]])))
                 try:
                     shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
                 except:
@@ -277,6 +290,8 @@ class amrBackend():
                     shutil.move(Path(self.caseParent,self.caseName,"terrain").as_posix(),destination)
                 caseTerrain=Path(self.caseParent,self.caseName,"terrain")
                 angle=angle+self.sweep_angle_increment
+                # 2025-03-06 Need to update roughness for angle 
+
                 if(angle<360):
                     self.caseTerrain=caseTerrain.as_posix()
                     caseTerrain.mkdir(parents=True,exist_ok=True)
@@ -445,9 +460,9 @@ class amrBackend():
         # Writing io 
         target.write("%-50s = false \n"%("io.output_default_variables"))
         if(self.turbulence_model=="RANS"):
-            target.write("%-50s = velocity temperature mu_turb tke terrain_vf \n"%("io.outputs"))
+            target.write("%-50s = velocity temperature mu_turb tke terrainz0 \n"%("io.outputs"))
         else:
-            target.write("%-50s = velocity temperature mu_turb terrain_vf \n"%("io.outputs"))
+            target.write("%-50s = velocity temperature mu_turb terrainz0 \n"%("io.outputs"))
         if(blanking==1):
             target.write("%-50s = terrain_blank terrain_drag \n"%("io.int_outputs"))
 
@@ -529,6 +544,27 @@ class amrBackend():
         target.write("%-50s = 2\n"%("ABL.normal_direction"))
         target.write("%-50s = %g\n"%("ABL.reference_temperature",self.refTemperature))
         target.write("%-50s = netcdf\n"%("ABL.stats_output_format "))
+        # Update roughness for sweep angles 
+        try:
+            int(self.sweep_angle)
+        except:
+            xdir=self.xref
+            ydir=self.yref
+        else:
+            farmRadius=self.yamlFile['farmRadius']
+            if(self.sweep_angle<=90):
+                xdir= self.xref-farmRadius* np.cos(self.sweep_angle*np.pi/180)
+                ydir= self.yref-farmRadius* np.sin(self.sweep_angle*np.pi/180)
+            elif(self.sweep_angle>90 and self.sweep_angle<=180):
+                xdir= self.xref+farmRadius* np.cos((180-self.sweep_angle)*np.pi/180)
+                ydir= self.yref- farmRadius* np.sin((180-self.sweep_angle)*np.pi/180)
+            elif(self.sweep_angle>180 and self.sweep_angle<=270):
+                xdir= self.xref+ farmRadius* np.cos((self.sweep_angle-180)*np.pi/180)
+                ydir= self.yref+ farmRadius* np.sin((self.sweep_angle-180)*np.pi/180)
+            else:
+                xdir= self.xref- farmRadius* np.cos((360-self.sweep_angle)*np.pi/180)
+                ydir= self.yref+ farmRadius* np.sin((360-self.sweep_angle)*np.pi/180)   
+        self.refRoughness=self.roughness_interp(xdir-self.xref,ydir-self.yref)
         target.write("%-50s = %g\n"%("ABL.surface_roughness_z0 ",self.refRoughness))
         # Write Heights 
         if(not self.rans_1d):
@@ -587,7 +623,15 @@ class amrBackend():
         target.write("# Source\n")
         if((sponge==1 and self.turbulence_model=="RANS") or (self.caseType=="terrain_noprecursor")):
             #forcingterms="WindSpongeForcing ABLMeanBoussinesq BoussinesqBuoyancy  "
-            forcingterms="VelocityFreeAtmosphereForcing ABLMeanBoussinesq BoussinesqBuoyancy "            
+            try:
+                molLength=self.yamlFile["molLength"]
+            except:
+                forcingterms="VelocityFreeAtmosphereForcing ABLMeanBoussinesq BoussinesqBuoyancy "            
+            else:
+                if(abs(float(molLength))>5000):
+                    forcingterms="VelocityFreeAtmosphereForcing ABLMeanBoussinesq BoussinesqBuoyancy "  
+                else:
+                    forcingterms="ABLMeanBoussinesq BoussinesqBuoyancy " 
         elif(self.caseType=="precursor"):
             forcingterms="VelocityFreeAtmosphereForcing BoussinesqBuoyancy"
         else:
@@ -629,6 +673,12 @@ class amrBackend():
                 target.write("%-50s = TemperatureFreeAtmosphereForcing  DragTempForcing\n"%("Temperature.source_terms"))
             else:
                 target.write("%-50s = DragTempForcing\n"%("Temperature.source_terms"))
+        try:
+            roughnessFile=self.yamlFile["roughnessFile"]
+        except:
+            pass
+        else:
+            target.write('%-50s = "roughness.amrwind.new" \n'%("TerrainDrag.roughness_file"))
         if(self.caseType=="terrain_noprecursor"):
             target.write("%-50s = 1\n"%("DragForcing.sponge_west"))
             target.write("%-50s = 1\n"%("DragForcing.sponge_east"))
@@ -771,10 +821,32 @@ class amrBackend():
         if(mol_length>0 and mol_length<500):
             num_of_steps=50000
             tolerance=1e-4
+        # Update roughness for sweep angles 
+        try:
+            int(self.sweep_angle)
+        except:
+            xdir=self.xref
+            ydir=self.yref
+        else:
+            farmRadius=self.yamlFile['farmRadius']
+            if(self.sweep_angle<=90):
+                xdir= self.xref-farmRadius* np.cos(self.sweep_angle*np.pi/180)
+                ydir= self.yref-farmRadius* np.sin(self.sweep_angle*np.pi/180)
+            elif(self.sweep_angle>90 and self.sweep_angle<=180):
+                xdir= self.xref+farmRadius* np.cos((180-self.sweep_angle)*np.pi/180)
+                ydir= self.yref- farmRadius* np.sin((180-self.sweep_angle)*np.pi/180)
+            elif(self.sweep_angle>180 and self.sweep_angle<=270):
+                xdir= self.xref+ farmRadius* np.cos((self.sweep_angle-180)*np.pi/180)
+                ydir= self.yref+ farmRadius* np.sin((self.sweep_angle-180)*np.pi/180)
+            else:
+                xdir= self.xref- farmRadius* np.cos((360-self.sweep_angle)*np.pi/180)
+                ydir= self.yref+ farmRadius* np.sin((360-self.sweep_angle)*np.pi/180)   
+        self.refRoughness=self.roughness_interp(xdir-self.xref,ydir-self.yref)
+        #print(xdir,ydir,self.refRoughness)
         roughness_length=self.refRoughness
         terrain_ht=0
         coriolis=self.caseCenterLat
-        if(abs(mol_length)>500):
+        if(abs(float(mol_length))>500):
             inv_height=np.amax(self.terrainX3)+1500
         elif(mol_length<0):
             inv_height=843
@@ -791,7 +863,7 @@ class amrBackend():
             windspeed=10.0
             wind[0]=windspeed*np.cos(self.sweep_angle*np.pi/180)
             wind[1]=windspeed*np.sin(self.sweep_angle*np.pi/180)
-            print(wind)
+            #print(wind)
         #initial_ug=wind[0]
         #if(self.caseCenterLat>0):
         #    initial_vg=max(wind[0],wind[1])*np.sin(self.caseCenterLat)
@@ -982,8 +1054,33 @@ class amrBackend():
             z=amr1D.z
             ux=amr1D.ux
             uy=amr1D.uy
-            met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
-            met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
+            # Correcting met-mast height 
+            # Find the z terrain location for data
+            error=10000 
+            for j in range(0,len(self.terrainX1)):
+                residual=np.sqrt((self.terrainX1[j])**2+(self.terrainX2[j])**2)
+                if(residual<error):
+                    error=residual
+                    xterrain=self.terrainX1[j]
+                    yterrain=self.terrainX2[j]
+                    zterrainmin=self.terrainX3[j]
+            #print(xterrain,yterrain,zterrainmin)
+            try:
+                int(self.sweep_angle)
+                if(len(metMastHeight)==1):
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight+500,z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight+500,z,uy)
+                else:
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight[0]+500,z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight[0]+500,z,uy)
+            except:
+                if(len(metMastHeight)==1):
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight,z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight,z,uy)
+                else:
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight[0],z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight[0],z,uy)
+            #print(met_mast_cfd_ux,met_mast_cfd_uy)
             errx=met_mast_cfd_ux-metMastWind[0]
             erry=met_mast_cfd_uy-metMastWind[1]
             print("%-8s %-7s|%-8s %-7s|%-8s %-7s|%-8s %-7s"%(round(ug[0],2),round(ug[1],2), \
@@ -1083,8 +1180,23 @@ class amrBackend():
             z=amr1D.z
             ux=amr1D.ux
             uy=amr1D.uy
-            met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
-            met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
+            try:
+                int(self.sweep_angle)
+                if(len(metMastHeight)==1):
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight+500,z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight+500,z,uy)
+                else:
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight[0]+500,z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight[0]+500,z,uy)
+            except:
+                if(len(metMastHeight)==1):
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight,z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight,z,uy)
+                else:
+                    met_mast_cfd_ux=np.interp(zterrainmin+metMastHeight[0],z,ux)
+                    met_mast_cfd_uy=np.interp(zterrainmin+metMastHeight[0],z,uy)
+            #met_mast_cfd_ux=np.interp(metMastHeight,z,ux)
+            #met_mast_cfd_uy=np.interp(metMastHeight,z,uy)
             errx=met_mast_cfd_ux-metMastWind[0]
             erry=met_mast_cfd_uy-metMastWind[1]
             print("%-8s %-7s|%-8s %-7s|%-8s %-7s|%-8s %-7s"%(round(ug[0],2),round(ug[1],2), \
@@ -1361,7 +1473,7 @@ class amrBackend():
                             self.metMastX[i],self.metMastY[i],zterrainmin))
                 taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".end"
                 target.write("%-50s = %g %g %g\n"%(taggingstring, \
-                            self.metMastX[i],self.metMastY[i],zterrainmin+metMastHeight+100))
+                            self.metMastX[i],self.metMastY[i],zterrainmin+metMastHeight[i]+100))
                 taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".outer_radius"
                 target.write("%-50s = %g\n"%(taggingstring,metMastRadius[i]))
                 taggingstring="tagging."+metMastRegions[i]+".metmastobject"+str(i)+".inner_radius"
@@ -1406,16 +1518,22 @@ class amrBackend():
             pass
         else:
             self.amrPrecursorFile.write("%-50s = %d\n"%(stringtowrite,0))
-        # Write the metmast file 
-        newtarget=Path(self.caseParent,self.caseName,"terrain","metmast.info").open("w")
-        newtarget.write("%g %g %g %g %g 0.0 %g\n"%(self.metMastX[0],self.metMastY[0],self.metMastHeight, \
-                                                self.caseWindspeedX,self.caseWindspeedY,self.refTemperature))
-        newtarget.close()
         # Write for AEP
         newtarget=Path(self.caseParent,self.caseName,"utm.info").open("w")
-        for i in range (0,len(metMastRegions)):
-            newtarget.write("MetMast%g,%g,%g,%g\n"%(i,self.metMastX[i],self.metMastY[i],self.metMastHeight))
+        i=0
+        for j in range(0,len(self.terrainX1)):
+            residual=np.sqrt((self.terrainX1[j]-self.metMastX[i])**2+(self.terrainX2[j]-self.metMastY[i])**2)
+            if(residual<error):
+                error=residual
+                zterrainmin=self.terrainX3[j]
+        newtarget.write("MetMast%g,%g,%g,%g\n"%(i,self.metMastX[i],self.metMastY[i],zterrainmin))
         newtarget.write("utmreference,%g,%g,0\n"%(self.xref,self.yref))
+        newtarget.close()
+        # Write the metmast file 
+        newtarget=Path(self.caseParent,self.caseName,"terrain","metmast.info").open("w")
+        newtarget.write("%g %g %g %g %g 0.0 %g\n"%(self.metMastX[0],self.metMastY[0],self.metMastHeight[0], \
+                                                self.caseWindspeedX,self.caseWindspeedY,self.refTemperature))
+        #print("$$",zterrainmin)
         newtarget.close()
 
 
@@ -1463,7 +1581,7 @@ class amrBackend():
             for levels in offsets:
                 target.write("%-50s = velocity temperature \n"%("terrain"+str(levels)+".fields"))
                 target.write('%-50s = "native"\n'%("terrain"+str(levels)+".output_format"))
-                target.write("%-50s = 600\n"%("terrain"+str(levels)+".output_frequency"))
+                target.write("%-50s = 100\n"%("terrain"+str(levels)+".output_frequency"))
                 target.write("%-50s = %s \n"%("terrain"+str(levels)+".labels","terrain"+str(levels)))
                 samplingentity="terrain"+str(levels)+".terrain"+str(levels)+".type"
                 target.write("%-50s = ProbeSampler\n"%(samplingentity))
@@ -1480,7 +1598,7 @@ class amrBackend():
                 else:
                     target.write("%-50s = velocity temperature \n"%("roi"+str(levels)+".fields"))
                     target.write('%-50s = "native"\n'%("roi"+str(levels)+".output_format"))
-                    target.write("%-50s = 600\n"%("roi"+str(levels)+".output_frequency"))
+                    target.write("%-50s = 100\n"%("roi"+str(levels)+".output_frequency"))
                     target.write("%-50s = %s \n"%("roi"+str(levels)+".labels","roi"+str(levels)))
                     samplingentity="roi"+str(levels)+".roi"+str(levels)+".type"
                     target.write("%-50s = ProbeSampler\n"%(samplingentity))
@@ -1494,7 +1612,7 @@ class amrBackend():
             for i in range(0,len(metMastRegions)):
                 target.write("%-50s = velocity temperature \n"%(str(metMastRegions[i])+".fields"))
                 target.write('%-50s = "native"\n'%(str(metMastRegions[i])+".output_format"))
-                target.write("%-50s = 600\n"%(str(metMastRegions[i])+".output_frequency"))
+                target.write("%-50s = 60\n"%(str(metMastRegions[i])+".output_frequency"))
                 target.write("%-50s = %s \n"%(str(metMastRegions[i])+".labels",str(metMastRegions[i])))
                 samplingentity=str(metMastRegions[i])+"."+str(metMastRegions[i])+".type"
                 target.write("%-50s = LineSampler\n"%(samplingentity))
@@ -1507,6 +1625,7 @@ class amrBackend():
                 for ii in range(0,len(self.terrainX1)):
                     residual=np.sqrt((self.metMastX[i]-self.terrainX1[ii])**2+(self.metMastY[i]-self.terrainX2[ii])**2)
                     if(residual<error):
+                        error=residual 
                         zstart=self.terrainX3[ii]
                 zstart=zstart-20
                 target.write("%-50s = %g %g %g\n"%(samplingentity,self.metMastX[i],self.metMastY[i],zstart))
@@ -1530,10 +1649,12 @@ class amrBackend():
         x1=self.terrainX1.flatten(order='F')
         x2=self.terrainX2.flatten(order='F')
         x3=self.terrainX3.flatten(order='F')  
-        x=np.arange(np.amin(x1),np.amax(x1),self.caseCellSize)
-        y=np.arange(np.amin(x2),np.amax(x2),self.caseCellSize)
         #x=np.arange(np.amin(x1),np.amax(x1),self.caseCellSize)
         #y=np.arange(np.amin(x2),np.amax(x2),self.caseCellSize)
+        #x=np.arange(np.amin(x1),np.amax(x1),self.caseCellSize)
+        #y=np.arange(np.amin(x2),np.amax(x2),self.caseCellSize)
+        x=np.arange(np.amin(x1),np.amax(x1),30)
+        y=np.arange(np.amin(x2),np.amax(x2),30)
         from scipy.interpolate import NearestNDInterpolator
         self.interp = NearestNDInterpolator(list(zip(x1,x2)),x3) 
         xterrain,yterrain=np.meshgrid(x,y)
@@ -1633,11 +1754,17 @@ class amrBackend():
                 target.write("%g %g %g\n"%(x1[i],x2[i],x3[i]))
             target.close()
         if(self.write_stl):
-            data=np.column_stack([x1,x2,x3])
-            import pyvista as pv
-            mesh=pv.PolyData(data)
-            mesh['elevation']=data[:,2]
-            mesh.save(Path(self.caseParent,self.caseName,folder,"roiPoints.vtk").as_posix())
+            try:
+                roi_lat=self.yamlFile["roiLat"]
+                roi_lon=self.yamlFile["roiLon"]
+            except:
+                pass
+            else:
+                data=np.column_stack([x1,x2,x3])
+                import pyvista as pv
+                mesh=pv.PolyData(data)
+                mesh['elevation']=data[:,2]
+                mesh.save(Path(self.caseParent,self.caseName,folder,"roiPoints.vtk").as_posix())
 
 
                # Roughness file 
@@ -1645,55 +1772,9 @@ class amrBackend():
             roughnessFile=self.yamlFile["roughnessFile"]
         except:
             pass
-        else:
-            from netCDF4 import Dataset
-            ncfile=Dataset(roughnessFile,'r')
-            lat=ncfile.variables['lat'][:]
-            lon=ncfile.variables['lon'][:]
-            landuseclass=ncfile.variables['lccs_class'][:]
-            lowlat=self.caseCenterLat-max(self.caseNorth,self.caseSouth)/110e3-0.2
-            highlat=self.caseCenterLat+max(self.caseNorth,self.caseSouth)/110e3+0.2
-            lowlon=self.caseCenterLon-max(self.caseEast,self.caseWest)/110e3-0.2
-            highlon=self.caseCenterLon+max(self.caseEast,self.caseWest)/110e3+0.2
-            lowlatindex=(np.abs(lowlat - lat) <= 0.02).argmax()
-            highlatindex=(np.abs(highlat - lat) <= 0.02).argmax()
-            lowlonindex=(np.abs(lowlon - lon) <= 0.02).argmax()
-            highlonindex=(np.abs(highlon - lon) <= 0.02).argmax()
-            latlist=[]
-            lonlist=[]
-            zval=[]
-            roughnesslist=[]
-            #print(lat.shape,lon.shape,landuseclass.shape)
-            roughness_length=[0.1,0.1,0.1,0.07,0.2,0.3,0.3,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.15,0.3,0.07,0.07,0.07,0.07,0.05,0.05,0.05,0.05,0.05,0.2,0.2,0.2,0.8,0.05,0.05,0.05,1e-4,0.0012]
-            lccs_class = [0, 10, 11, 12, 20, 30, 40, 50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 100, 110, 120, 121, 122, 130, 140, 150, 151, 152, 153, 160, 170, 180, 190, 200, 201, 202, 210, 220]
-            for j in range(lowlonindex,highlonindex):
-                for i in range(lowlatindex,highlatindex,-1):
-                    latlist.append(lat[i])
-                    lonlist.append(lon[j])
-                    zval.append(0)
-                    findindex=(np.abs(landuseclass[0,i,j] - lccs_class) <= 0.1).argmax()
-                    z0=roughness_length[findindex]
-                    roughnesslist.append(z0)
-            import pyvista as pv
-            data=np.column_stack((lonlist,latlist,zval))
-            mesh=pv.PolyData(data)
-            mesh['roughness']=roughnesslist
-            mesh.save(Path(self.caseParent,self.caseName,folder,'roughness.vtk').as_posix())
-            #print("Writing default roughness file")
-            target=Path(self.caseParent,self.caseName,folder,"roughness.amrwind").open("w")
-            x=[]
-            y=[]
-            for i in range(0,len(roughnesslist)):
-                #target.write("%g %g %g\n"%(lonlist[i],latlist[i],roughnesslist[i])
-                xtemp,ytemp,_,_=utm.from_latlon(latlist[i],lonlist[i],force_zone_number=self.zone_number)
-                x.append(xtemp-self.xref)
-                if(self.caseCenterLat<0):
-                    ytemp=ytemp-10000000 
-                y.append(ytemp-self.yref)
-                target.write("%g %g %g\n"%(x[i],y[i],roughnesslist[i]))
-            target.close()
+        else:           
             #print("Opening file",Path(self.caseParent,self.caseName,folder,"roughness.amrwind").as_posix())
-            data=np.genfromtxt(Path(self.caseParent,self.caseName,folder,"roughness.amrwind").as_posix())
+            data=np.genfromtxt(Path(self.caseParent,self.caseName,"roughness.amrwind").as_posix())
             dx=np.amax(x)-np.amin(x)
             nx=int(dx/300.0)
             xtemp = np.linspace(np.amin(x),np.amax(x),nx)
@@ -1701,10 +1782,9 @@ class amrBackend():
             ny=int(dx/300.0)
             ytemp = np.linspace(np.amin(y),np.amax(y),ny)
             ztemp=[]
-            interp = NearestNDInterpolator(list(zip(x, y)), roughnesslist)
             for i in range (0,len(xtemp)):
                 for j in range(0,len(ytemp)):
-                    z0=interp(xtemp[i],ytemp[j])
+                    z0=self.roughness_interp(xtemp[i],ytemp[j])
                     ztemp.append(z0)
             #z = data[:, 2]
             #print(latlist[0:10])
@@ -1801,6 +1881,56 @@ class amrBackend():
         #import matplotlib.pylab as plt 
         #plt.contourf(self.roughLon,self.roughLat,roughNumpy)
         #plt.show()
+    
+    def makeRoughness(self):
+        from netCDF4 import Dataset
+        roughnessFile=self.yamlFile["roughnessFile"]
+        ncfile=Dataset(roughnessFile,'r')
+        lat=ncfile.variables['lat'][:]
+        lon=ncfile.variables['lon'][:]
+        landuseclass=ncfile.variables['lccs_class'][:]
+        lowlat=self.caseCenterLat-max(self.caseNorth,self.caseSouth)/110e3-0.2
+        highlat=self.caseCenterLat+max(self.caseNorth,self.caseSouth)/110e3+0.2
+        lowlon=self.caseCenterLon-max(self.caseEast,self.caseWest)/110e3-0.2
+        highlon=self.caseCenterLon+max(self.caseEast,self.caseWest)/110e3+0.2
+        lowlatindex=(np.abs(lowlat - lat) <= 0.02).argmax()
+        highlatindex=(np.abs(highlat - lat) <= 0.02).argmax()
+        lowlonindex=(np.abs(lowlon - lon) <= 0.02).argmax()
+        highlonindex=(np.abs(highlon - lon) <= 0.02).argmax()
+        latlist=[]
+        lonlist=[]
+        zval=[]
+        roughnesslist=[]
+        #print(lat.shape,lon.shape,landuseclass.shape)
+        roughness_length=[0.1,0.1,0.1,0.07,0.2,0.3,0.3,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.15,0.3,0.07,0.07,0.07,0.07,0.05,0.05,0.05,0.05,0.05,0.2,0.2,0.2,0.8,0.05,0.05,0.05,1e-4,0.0012]
+        lccs_class = [0, 10, 11, 12, 20, 30, 40, 50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 100, 110, 120, 121, 122, 130, 140, 150, 151, 152, 153, 160, 170, 180, 190, 200, 201, 202, 210, 220]
+        for j in range(lowlonindex,highlonindex):
+            for i in range(lowlatindex,highlatindex,-1):
+                latlist.append(lat[i])
+                lonlist.append(lon[j])
+                zval.append(0)
+                findindex=(np.abs(landuseclass[0,i,j] - lccs_class) <= 0.1).argmax()
+                z0=roughness_length[findindex]
+                roughnesslist.append(z0)
+        import pyvista as pv
+        data=np.column_stack((lonlist,latlist,zval))
+        mesh=pv.PolyData(data)
+        mesh['roughness']=roughnesslist
+        mesh.save(Path(self.caseParent,self.caseName,'roughness.vtk').as_posix())
+        #print("Writing default roughness file")
+        target=Path(self.caseParent,self.caseName,"roughness.amrwind").open("w")
+        x=[]
+        y=[]
+        for i in range(0,len(roughnesslist)):
+            #target.write("%g %g %g\n"%(lonlist[i],latlist[i],roughnesslist[i])
+            xtemp,ytemp,_,_=utm.from_latlon(latlist[i],lonlist[i],force_zone_number=self.zone_number)
+            x.append(xtemp-self.xref)
+            if(self.caseCenterLat<0):
+                ytemp=ytemp-10000000 
+            y.append(ytemp-self.yref)
+            target.write("%g %g %g\n"%(x[i],y[i],roughnesslist[i]))
+        target.close()
+        self.roughness_interp = NearestNDInterpolator(list(zip(x, y)), roughnesslist)
 
 
 
